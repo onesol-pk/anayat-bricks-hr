@@ -1,162 +1,162 @@
 "use client"
 
-import { useState } from "react"
-import { supabase } from "../../lib/supabase"
-
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-
-  async function handleLogin() {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (error) alert(error.message)
-    else window.location.href = "/"
-  }
-
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#0b1220" }}>
+    <div style={styles.page}>
+      <div style={styles.wrapper}>
 
-      {/* LEFT PANEL */}
-      <div style={{
-        flex: 1,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: "40px",
-        color: "white"
-      }}>
+        {/* LEFT PANEL */}
+        <div style={styles.left}>
+          <div style={styles.card}>
+            <h1 style={styles.title}>ANAYAT SONS BRICKS</h1>
+            <p style={styles.subtitle}>HR & WAGE MANAGEMENT SYSTEM</p>
 
-        <div style={{
-          width: "100%",
-          maxWidth: "420px",
-        }}>
+            <h2 style={styles.welcome}>Welcome Back</h2>
+            <p style={styles.desc}>Sign in to continue to your dashboard</p>
 
-          {/* LOGO + BRAND */}
-          <div style={{ marginBottom: "30px" }}>
-            <h2 style={{ margin: 0 }}>ANAYAT SONS BRICKS</h2>
-            <p style={{ color: "#ff7a18", marginTop: "5px" }}>
-              HR & WAGE MANAGEMENT SYSTEM
-            </p>
+            <input placeholder="Enter your email" style={styles.input} />
+            <input placeholder="Enter your password" type="password" style={styles.input} />
+
+            <div style={styles.row}>
+              <label style={{ color: "#ccc" }}>
+                <input type="checkbox" /> Remember me
+              </label>
+              <span style={styles.link}>Forgot Password?</span>
+            </div>
+
+            <button style={styles.button}>Login →</button>
           </div>
-
-          {/* TITLE */}
-          <h1 style={{ marginBottom: "10px" }}>Welcome Back</h1>
-          <p style={{ opacity: 0.7, marginBottom: "30px" }}>
-            Sign in to continue to your dashboard
-          </p>
-
-          {/* EMAIL */}
-          <div style={{ marginBottom: "15px" }}>
-            <input
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "14px",
-                borderRadius: "10px",
-                border: "1px solid #1f2a44",
-                background: "#0f172a",
-                color: "white"
-              }}
-            />
-          </div>
-
-          {/* PASSWORD */}
-          <div style={{ marginBottom: "10px" }}>
-            <input
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "14px",
-                borderRadius: "10px",
-                border: "1px solid #1f2a44",
-                background: "#0f172a",
-                color: "white"
-              }}
-            />
-          </div>
-
-          {/* REMEMBER + FORGOT */}
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: "14px",
-            marginBottom: "25px"
-          }}>
-            <label>
-              <input type="checkbox" /> Remember me
-            </label>
-            <span style={{ color: "#ff7a18", cursor: "pointer" }}>
-              Forgot Password?
-            </span>
-          </div>
-
-          {/* BUTTON */}
-          <button
-            onClick={handleLogin}
-            style={{
-              width: "100%",
-              padding: "16px",
-              borderRadius: "12px",
-              border: "none",
-              background: "linear-gradient(90deg, #ff7a18, #ff4d00)",
-              color: "white",
-              fontWeight: "bold",
-              fontSize: "16px",
-              cursor: "pointer",
-              boxShadow: "0 10px 30px rgba(255,122,24,0.3)"
-            }}
-          >
-            Login →
-          </button>
-
         </div>
-      </div>
 
-      {/* RIGHT IMAGE PANEL */}
-      <div style={{
-        flex: 1,
-        backgroundImage: "url('/login-bg.jpg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        position: "relative"
-      }}>
-
-        {/* DARK OVERLAY */}
-        <div style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(0,0,0,0.4)"
-        }} />
-
-        {/* TEXT */}
-        <div style={{
-          position: "absolute",
-          top: "20%",
-          left: "10%",
-          color: "white"
-        }}>
-          <h2 style={{ fontSize: "34px" }}>
-            Building Strength.
-          </h2>
-          <h1 style={{
-            fontSize: "42px",
-            color: "#ff7a18"
-          }}>
-            Empowering People.
-          </h1>
+        {/* RIGHT PANEL */}
+        <div style={styles.right}>
+          <div style={styles.overlay}>
+            <h2 style={styles.heading1}>Building Strength.</h2>
+            <h2 style={styles.heading2}>Empowering People.</h2>
+          </div>
         </div>
 
       </div>
-
     </div>
   )
+}
+
+const styles = {
+  page: {
+    height: "100vh",
+    width: "100vw",
+    backgroundColor: "#0b1320",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+
+  wrapper: {
+    width: "95%",
+    height: "90%",
+    display: "flex",
+    borderRadius: "20px",
+    overflow: "hidden",
+    border: "1px solid rgba(255,255,255,0.08)",
+    boxShadow: "0 0 40px rgba(0,0,0,0.6)",
+  },
+
+  left: {
+    width: "50%",
+    background: "#0b1320",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  card: {
+    width: "80%",
+    maxWidth: "420px",
+  },
+
+  title: {
+    color: "#fff",
+    fontSize: "22px",
+    fontWeight: "bold",
+  },
+
+  subtitle: {
+    color: "#ff7a00",
+    marginBottom: "30px",
+  },
+
+  welcome: {
+    color: "#fff",
+    fontSize: "32px",
+    marginBottom: "10px",
+  },
+
+  desc: {
+    color: "#aaa",
+    marginBottom: "30px",
+  },
+
+  input: {
+    width: "100%",
+    padding: "14px",
+    marginBottom: "15px",
+    borderRadius: "10px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "#111827",
+    color: "#fff",
+  },
+
+  row: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginBottom: "20px",
+    fontSize: "14px",
+  },
+
+  link: {
+    color: "#ff7a00",
+    cursor: "pointer",
+  },
+
+  button: {
+    width: "100%",
+    padding: "15px",
+    borderRadius: "12px",
+    border: "none",
+    background: "linear-gradient(90deg, #ff7a00, #ff4500)",
+    color: "#fff",
+    fontSize: "16px",
+    cursor: "pointer",
+  },
+
+  right: {
+    width: "50%",
+    backgroundImage: "url('/login-bg.jpg')",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    position: "relative",
+  },
+
+  overlay: {
+    position: "absolute",
+    inset: 0,
+    background: "rgba(0,0,0,0.5)",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    color: "#fff",
+    textAlign: "center",
+  },
+
+  heading1: {
+    fontSize: "28px",
+    marginBottom: "10px",
+  },
+
+  heading2: {
+    fontSize: "36px",
+    color: "#ff7a00",
+  },
 }
