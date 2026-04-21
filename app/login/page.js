@@ -71,7 +71,7 @@ export default function LoginPage() {
           />
 
           {/* TEXT (TOP RIGHT CORNER) */}
-          <div className="absolute top-10 left-10 text-right">
+          <div className="absolute top-10 left-10 text-left">
             <h2 className="text-white text-3xl font-semibold drop-shadow-lg">
               Building Strength.
             </h2>
