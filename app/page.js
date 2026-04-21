@@ -3,6 +3,15 @@
 import { useEffect, useState } from "react"
 import { supabase } from "../lib/supabase"
 
+// ✅ Helper: get Thursday of current week
+function getWeekStart(date = new Date()) {
+  const d = new Date(date)
+  const day = d.getDay() // 0=Sun ... 4=Thu
+  const diff = day >= 4 ? day - 4 : 7 - (4 - day)
+  d.setDate(d.getDate() - diff)
+  return d.toISOString().split("T")[0]
+}
+
 export default function Home() {
   const [workers, setWorkers] = useState([])
   const [entries, setEntries] = useState([])
@@ -19,18 +28,12 @@ export default function Home() {
   }
 
   async function fetchEntries() {
-    const { data } = await supabase
-      .from("work_entries")
-      .select("*")
-
+    const { data } = await supabase.from("work_entries").select("*")
     setEntries(data || [])
   }
 
   async function fetchAdvances() {
-    const { data } = await supabase
-      .from("advances")
-      .select("*")
-
+    const { data } = await supabase.from("advances").select("*")
     setAdvances(data || [])
   }
 
@@ -52,6 +55,7 @@ export default function Home() {
     if (!selectedWorker || !bricks || !rate) return
 
     const today = new Date().toISOString().split("T")[0]
+    const weekStart = getWeekStart()
 
     await supabase.from("work_entries").insert([
       {
@@ -59,6 +63,7 @@ export default function Home() {
         date: today,
         bricks: Number(bricks),
         rate_per_1000: Number(rate),
+        week_start: weekStart,
       },
     ])
 
@@ -72,7 +77,6 @@ export default function Home() {
 
     const earnings = getWorkerEarnings(selectedWorker)
     const alreadyTaken = getWorkerAdvances(selectedWorker)
-
     const maxAllowed = earnings * 0.7
 
     if (alreadyTaken + Number(advanceAmount) > maxAllowed) {
@@ -81,12 +85,14 @@ export default function Home() {
     }
 
     const today = new Date().toISOString().split("T")[0]
+    const weekStart = getWeekStart()
 
     await supabase.from("advances").insert([
       {
         worker_id: selectedWorker,
         amount: Number(advanceAmount),
         date: today,
+        week_start: weekStart,
       },
     ])
 
@@ -161,6 +167,42 @@ export default function Home() {
           return (
             <li key={w.id}>
               {w.name} — Earned: Rs {earnings} — Advance: Rs {adv} — Balance: Rs {balance}
+            </li>
+          )
+        })}
+      </ul>
+
+      <hr />
+
+      {/* Weekly Settlement */}
+      <h2>Weekly Settlement (Current Week)</h2>
+
+      <ul>
+        {workers.map((w) => {
+          const weekStart = getWeekStart()
+
+          const weekEntries = entries.filter(
+            (e) => e.worker_id === w.id && e.week_start === weekStart
+          )
+
+          const weekAdvances = advances.filter(
+            (a) => a.worker_id === w.id && a.week_start === weekStart
+          )
+
+          const earnings = weekEntries.reduce((sum, e) => {
+            return sum + (e.bricks / 1000) * e.rate_per_1000
+          }, 0)
+
+          const adv = weekAdvances.reduce(
+            (sum, a) => sum + Number(a.amount),
+            0
+          )
+
+          const net = earnings - adv
+
+          return (
+            <li key={w.id}>
+              {w.name} — Earned: Rs {earnings} — Advance: Rs {adv} — Net: Rs {net}
             </li>
           )
         })}
