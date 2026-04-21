@@ -43,8 +43,8 @@ export default function LoginPage() {
 
 const styles = {
   page: {
-    height: "110vh",
-    width: "110vw",
+    height: "100vh",
+    width: "100vw",
     backgroundColor: "#0b1320",
     display: "flex",
     justifyContent: "center",
