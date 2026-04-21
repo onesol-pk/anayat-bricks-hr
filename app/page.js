@@ -95,8 +95,10 @@ export default function Home() {
               {e.workers?.name} — {e.bricks} bricks — Rs {earning}
             </li>
         <h2>Worker Totals</h2>
-        
-        <ul>
+          )
+        })}
+      </ul>
+          <ul>
           {workers.map((w) => {
             const total = entries
               .filter((e) => e.worker_id === w.id)
@@ -111,9 +113,6 @@ export default function Home() {
             )
           })}
         </ul>
-          )
-        })}
-      </ul>
     </div>
   )
 }
