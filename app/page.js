@@ -199,9 +199,82 @@ export default function Home() {
           )
 
           const net = earnings - adv
+  function printSlip(worker) {
+  const weekStart = getWeekStart()
 
+  const weekEntries = entries.filter(
+    (e) => e.worker_id === worker.id && e.week_start === weekStart
+  )
+
+  const weekAdvances = advances.filter(
+    (a) => a.worker_id === worker.id && a.week_start === weekStart
+  )
+
+  const totalBricks = weekEntries.reduce((sum, e) => sum + e.bricks, 0)
+
+  const earnings = weekEntries.reduce((sum, e) => {
+    return sum + (e.bricks / 1000) * e.rate_per_1000
+  }, 0)
+
+  const adv = weekAdvances.reduce((sum, a) => sum + Number(a.amount), 0)
+
+  const net = earnings - adv
+
+  const html = `
+    <html>
+      <body style="font-family: Arial; padding:20px;">
+        <h2>Weekly Settlement / ہفتہ وار حساب</h2>
+
+        <table border="1" cellpadding="10" style="width:100%; border-collapse:collapse;">
+          <tr>
+            <th>English</th>
+            <th>اردو</th>
+          </tr>
+
+          <tr>
+            <td>Name: ${worker.name}</td>
+            <td>نام: ${worker.name}</td>
+          </tr>
+
+          <tr>
+            <td>Week Start: ${weekStart}</td>
+            <td>ہفتہ شروع: ${weekStart}</td>
+          </tr>
+
+          <tr>
+            <td>Total Bricks: ${totalBricks}</td>
+            <td>کل اینٹیں: ${totalBricks}</td>
+          </tr>
+
+          <tr>
+            <td>Total Earnings: Rs ${earnings}</td>
+            <td>کل مزدوری: Rs ${earnings}</td>
+          </tr>
+
+          <tr>
+            <td>Advance: Rs ${adv}</td>
+            <td>ایڈوانس: Rs ${adv}</td>
+          </tr>
+
+          <tr>
+            <td>Final Balance: Rs ${net}</td>
+            <td>بقایا: Rs ${net}</td>
+          </tr>
+        </table>
+
+        <br/><br/>
+        <button onclick="window.print()">Print</button>
+      </body>
+    </html>
+  `
+
+  const win = window.open("", "_blank")
+  win.document.write(html)
+  win.document.close()
+}
           return (
             <li key={w.id}>
+  <button onClick={() => printSlip(w)}>Print</button>
               {w.name} — Earned: Rs {earnings} — Advance: Rs {adv} — Net: Rs {net}
             </li>
           )
