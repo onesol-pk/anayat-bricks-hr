@@ -5,6 +5,8 @@ import { supabase } from "../lib/supabase"
 
 export default function Home() {
   const [workers, setWorkers] = useState([])
+  const [entries, setEntries] = useState([])
+
   const [selectedWorker, setSelectedWorker] = useState("")
   const [bricks, setBricks] = useState("")
   const [rate, setRate] = useState("")
@@ -12,6 +14,15 @@ export default function Home() {
   async function fetchWorkers() {
     const { data } = await supabase.from("workers").select("*")
     setWorkers(data || [])
+  }
+
+  async function fetchEntries() {
+    const { data } = await supabase
+      .from("work_entries")
+      .select("*, workers(name)")
+      .order("date", { ascending: false })
+
+    setEntries(data || [])
   }
 
   async function addWorkEntry() {
@@ -30,11 +41,12 @@ export default function Home() {
 
     setBricks("")
     setRate("")
-    alert("Work entry added")
+    fetchEntries()
   }
 
   useEffect(() => {
     fetchWorkers()
+    fetchEntries()
   }, [])
 
   return (
@@ -69,6 +81,22 @@ export default function Home() {
       <br /><br />
 
       <button onClick={addWorkEntry}>Save Entry</button>
+
+      <hr />
+
+      <h2>Work Records</h2>
+
+      <ul>
+        {entries.map((e) => {
+          const earning = (e.bricks / 1000) * e.rate_per_1000
+
+          return (
+            <li key={e.id}>
+              {e.workers?.name} — {e.bricks} bricks — Rs {earning}
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
