@@ -152,7 +152,7 @@ const styles = {
 
   heading1: {
     fontSize: "28px",
-    marginBottom: "5px",
+
   },
 
   heading2: {
