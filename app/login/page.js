@@ -45,7 +45,7 @@ const styles = {
   page: {
     height: "100vh",
     width: "100vw",
-    backgroundColor: "#ff7a00",
+    backgroundColor: "#0b1320",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -58,7 +58,7 @@ const styles = {
     display: "flex",
     borderRadius: "20px",
     overflow: "hidden",
-    border: "1px solid rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255, 122, 0)",
     boxShadow: "0 0 40px rgba(0,0,0,0.6)",
   },
 
