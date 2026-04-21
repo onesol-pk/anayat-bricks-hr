@@ -140,7 +140,7 @@ export default function LoginPage() {
         {/* TEXT */}
         <div style={{
           position: "absolute",
-          top: "30%",
+          top: "20%",
           left: "10%",
           color: "white"
         }}>
