@@ -1,9 +1,26 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { supabase } from "../lib/supabase"
 
-export default async function Home() {
-  const { data: workers, error } = await supabase
-    .from("workers")
-    .select("*")
+export default function Home() {
+  const [workers, setWorkers] = useState([])
+
+  useEffect(() => {
+    async function fetchWorkers() {
+      const { data, error } = await supabase
+        .from("workers")
+        .select("*")
+
+      if (!error) {
+        setWorkers(data)
+      } else {
+        console.log(error)
+      }
+    }
+
+    fetchWorkers()
+  }, [])
 
   return (
     <div style={{ padding: "20px" }}>
@@ -11,10 +28,8 @@ export default async function Home() {
 
       <h2>Workers</h2>
 
-      {error && <p>Error loading workers</p>}
-
       <ul>
-        {workers?.map((worker) => (
+        {workers.map((worker) => (
           <li key={worker.id}>
             {worker.name} - {worker.phone} - {worker.status}
           </li>
