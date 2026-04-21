@@ -53,6 +53,7 @@ export default function Home() {
     <div style={{ padding: "20px" }}>
       <h1>Anayat Sons Bricks</h1>
 
+      {/* Add Work Entry */}
       <h2>Add Work Entry</h2>
 
       <select onChange={(e) => setSelectedWorker(e.target.value)}>
@@ -84,6 +85,7 @@ export default function Home() {
 
       <hr />
 
+      {/* Work Records */}
       <h2>Work Records</h2>
 
       <ul>
@@ -94,25 +96,30 @@ export default function Home() {
             <li key={e.id}>
               {e.workers?.name} — {e.bricks} bricks — Rs {earning}
             </li>
-        <h2>Worker Totals</h2>
           )
         })}
       </ul>
-          <ul>
-          {workers.map((w) => {
-            const total = entries
-              .filter((e) => e.worker_id === w.id)
-              .reduce((sum, e) => {
-                return sum + (e.bricks / 1000) * e.rate_per_1000
-              }, 0)
-        
-            return (
-              <li key={w.id}>
-                {w.name} — Total: Rs {total}
-              </li>
-            )
-          })}
-        </ul>
+
+      <hr />
+
+      {/* Worker Totals */}
+      <h2>Worker Totals</h2>
+
+      <ul>
+        {workers.map((w) => {
+          const total = entries
+            .filter((e) => e.worker_id === w.id)
+            .reduce((sum, e) => {
+              return sum + (e.bricks / 1000) * e.rate_per_1000
+            }, 0)
+
+          return (
+            <li key={w.id}>
+              {w.name} — Total: Rs {total}
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
