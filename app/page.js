@@ -94,6 +94,23 @@ export default function Home() {
             <li key={e.id}>
               {e.workers?.name} — {e.bricks} bricks — Rs {earning}
             </li>
+        <h2>Worker Totals</h2>
+        
+        <ul>
+          {workers.map((w) => {
+            const total = entries
+              .filter((e) => e.worker_id === w.id)
+              .reduce((sum, e) => {
+                return sum + (e.bricks / 1000) * e.rate_per_1000
+              }, 0)
+        
+            return (
+              <li key={w.id}>
+                {w.name} — Total: Rs {total}
+              </li>
+            )
+          })}
+        </ul>
           )
         })}
       </ul>
