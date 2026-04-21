@@ -45,7 +45,7 @@ const styles = {
   page: {
     height: "100vh",
     width: "100vw",
-    backgroundColor: "#0b1320",
+    backgroundColor: "#ff7a00",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
