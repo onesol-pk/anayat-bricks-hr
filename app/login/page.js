@@ -72,10 +72,10 @@ export default function LoginPage() {
 
           {/* TEXT (TOP RIGHT CORNER) */}
           <div className="absolute top-10 left-10 text-left">
-            <h2 className="text-white text-3xl font-semibold drop-shadow-lg">
+            <h2 className="text-white text-2xl font-semibold drop-shadow-lg">
               Building Strength.
             </h2>
-            <h1 className="text-orange-500 text-5xl font-bold mt-2 drop-shadow-lg">
+            <h1 className="text-orange-500 text-3xl font-bold mt-2 drop-shadow-lg">
               Empowering People.
             </h1>
           </div>
