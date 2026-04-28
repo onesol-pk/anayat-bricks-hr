@@ -66,7 +66,7 @@ export default async function AdminDashboard() {
       </h1>
 
       {/* KPI SECTION */}
-      <div className="grid grid-cols-3 gap-6 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
         <div className="bg-[#0f223a] p-6 rounded-xl">
           <h2 className="text-gray-400 text-lg mb-2">
@@ -98,7 +98,7 @@ export default async function AdminDashboard() {
       </div>
 
       {/* MODULES */}
-     <div className="grid grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
         <Link href="/workers">
           <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
@@ -118,20 +118,38 @@ export default async function AdminDashboard() {
           </div>
         </Link>
 
-        <Link href="/payroll">
+        <Link href="/advances">
           <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
-            <h2 className="text-xl font-semibold">Payroll</h2>
+            <h2 className="text-xl font-semibold">Advances</h2>
             <p className="text-gray-400 mt-2">
-              Manage wages and payments
+              Manage worker advances
             </p>
           </div>
         </Link>
 
-       <Link href="/deductions">
+        <Link href="/deductions">
           <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
             <h2 className="text-xl font-semibold">Deductions</h2>
             <p className="text-gray-400 mt-2">
               Manage worker deductions
+            </p>
+          </div>
+        </Link>
+
+        <Link href="/ledger">
+          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
+            <h2 className="text-xl font-semibold">Ledger</h2>
+            <p className="text-gray-400 mt-2">
+              View worker balances
+            </p>
+          </div>
+        </Link>
+
+        <Link href="/payroll">
+          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
+            <h2 className="text-xl font-semibold">Payroll</h2>
+            <p className="text-gray-400 mt-2">
+              Weekly settlement & payments
             </p>
           </div>
         </Link>
