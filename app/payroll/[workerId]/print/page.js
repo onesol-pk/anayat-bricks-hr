@@ -114,16 +114,15 @@ export default function PrintSlipPage() {
       
       <div className="max-w-4xl mx-auto border p-8">
 
-        <h1 className="text-2xl font-bold text-center mb-8">
+       <h1 className="text-2xl font-bold text-center mb-2">
           Anayat Sons Bricks - Weekly Settlement Slip
-        </h1>
-
-        <div className="grid grid-cols-2 gap-10">
-
-          {/* English */}
-          <div>
-            <h2 className="text-xl font-bold mb-4">
-              English
+            </h1>
+            
+            <h2 
+              className="text-xl font-bold text-center mb-8"
+              dir="rtl"
+            >
+              عنایت سنز برکس - ہفتہ وار ادائیگی پرچی
             </h2>
 
             <p>Date: {payroll.weekStart}</p>
