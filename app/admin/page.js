@@ -104,15 +104,15 @@ export default async function AdminDashboard() {
           </div>
         </Link>
 
-        {/* Attendance */}
-        <Link href="/attendance">
-          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
-            <h2 className="text-xl font-semibold">Attendance</h2>
-            <p className="text-gray-400 mt-2">
-              Track daily work entries
-            </p>
-          </div>
-        </Link>
+        {/* Work Entry */}
+        <Link href="/work-entry">
+        <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
+          <h2 className="text-xl font-semibold">Daily Work Entry</h2>
+          <p className="text-gray-400 mt-2">
+            Record daily brick production
+          </p>
+        </div>
+      </Link>
 
         {/* Deductions */}
         <Link href="/deductions">
