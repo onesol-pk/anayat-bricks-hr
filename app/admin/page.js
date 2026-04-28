@@ -98,7 +98,7 @@ export default async function AdminDashboard() {
       </div>
 
       {/* MODULES */}
-      <div className="grid grid-cols-4 gap-6">
+     <div className="grid grid-cols-5 gap-6">
 
         <Link href="/workers">
           <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
@@ -123,6 +123,15 @@ export default async function AdminDashboard() {
             <h2 className="text-xl font-semibold">Payroll</h2>
             <p className="text-gray-400 mt-2">
               Manage wages and payments
+            </p>
+          </div>
+        </Link>
+
+       <Link href="/deductions">
+          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
+            <h2 className="text-xl font-semibold">Deductions</h2>
+            <p className="text-gray-400 mt-2">
+              Manage worker deductions
             </p>
           </div>
         </Link>
