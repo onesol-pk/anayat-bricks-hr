@@ -124,8 +124,8 @@ export default function PayrollPage() {
   }
 
   function printSlip(worker) {
-    window.print()
-  }
+  window.open(`/payroll/${worker.id}/print`)
+}
 
   return (
     <div className="min-h-screen bg-[#061226] text-white p-8">
