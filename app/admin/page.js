@@ -19,9 +19,7 @@ export default async function AdminDashboard() {
 
   const weekStart = monday.toISOString().split("T")[0]
 
-  // --------------------------
-  // WEEKLY BRICK PRODUCTION
-  // --------------------------
+  // Weekly Brick Production
   const { data: workEntries } = await supabase
     .from("work_entries")
     .select("bricks, rate_per_1000")
@@ -32,9 +30,7 @@ export default async function AdminDashboard() {
       return sum + (entry.bricks || 0)
     }, 0) || 0
 
-  // --------------------------
-  // WEEKLY ADVANCES
-  // --------------------------
+  // Weekly Advances
   const { data: advances } = await supabase
     .from("advances")
     .select("amount")
@@ -45,9 +41,7 @@ export default async function AdminDashboard() {
       return sum + (entry.amount || 0)
     }, 0) || 0
 
-  // --------------------------
-  // SALARIES DUE
-  // --------------------------
+  // Salaries Due
   const salariesDue =
     workEntries?.reduce((sum, entry) => {
       const wage =
@@ -60,12 +54,12 @@ export default async function AdminDashboard() {
   return (
     <div className="min-h-screen bg-[#061226] text-white p-8">
       
-      {/* HEADER */}
+      {/* Header */}
       <h1 className="text-4xl font-bold text-orange-500 mb-8">
         Admin Dashboard
       </h1>
 
-      {/* KPI SECTION */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
         <div className="bg-[#0f223a] p-6 rounded-xl">
@@ -97,9 +91,10 @@ export default async function AdminDashboard() {
 
       </div>
 
-      {/* MODULES */}
+      {/* Modules */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
+        {/* Workers */}
         <Link href="/workers">
           <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
             <h2 className="text-xl font-semibold">Workers</h2>
@@ -109,6 +104,7 @@ export default async function AdminDashboard() {
           </div>
         </Link>
 
+        {/* Attendance */}
         <Link href="/attendance">
           <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
             <h2 className="text-xl font-semibold">Attendance</h2>
@@ -118,15 +114,7 @@ export default async function AdminDashboard() {
           </div>
         </Link>
 
-        <Link href="/advances">
-          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
-            <h2 className="text-xl font-semibold">Advances</h2>
-            <p className="text-gray-400 mt-2">
-              Manage worker advances
-            </p>
-          </div>
-        </Link>
-
+        {/* Deductions */}
         <Link href="/deductions">
           <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
             <h2 className="text-xl font-semibold">Deductions</h2>
@@ -136,29 +124,12 @@ export default async function AdminDashboard() {
           </div>
         </Link>
 
+        {/* Ledger */}
         <Link href="/ledger">
           <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
             <h2 className="text-xl font-semibold">Ledger</h2>
             <p className="text-gray-400 mt-2">
               View worker balances
-            </p>
-          </div>
-        </Link>
-
-        <Link href="/payroll">
-          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
-            <h2 className="text-xl font-semibold">Payroll</h2>
-            <p className="text-gray-400 mt-2">
-              Weekly settlement & payments
-            </p>
-          </div>
-        </Link>
-
-        <Link href="/reports">
-          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
-            <h2 className="text-xl font-semibold">Reports</h2>
-            <p className="text-gray-400 mt-2">
-              View production & payroll reports
             </p>
           </div>
         </Link>
