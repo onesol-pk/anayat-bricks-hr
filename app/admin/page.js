@@ -124,6 +124,16 @@ export default async function AdminDashboard() {
           </div>
         </Link>
 
+        {/* Payroll */}
+          <Link href="/payroll">
+            <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer h-full">
+              <h2 className="text-xl font-semibold">Payroll</h2>
+              <p className="text-gray-400 mt-2">
+                Run weekly settlements & payments
+              </p>
+            </div>
+          </Link>
+
         {/* Ledger */}
         <Link href="/ledger">
           <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
