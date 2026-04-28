@@ -20,38 +20,19 @@ export default function WorkEntryPage() {
   useEffect(() => {
     fetchWorkers()
     fetchEntries()
+    fixOldEntries()
   }, [])
 
-  async function fetchWorkers() {
-    const { data } = await supabase
-      .from("workers")
-      .select("*")
-      .eq("status", "active")
-      .order("name")
-
-    if (data) setWorkers(data)
-  }
-
-  async function fetchEntries() {
-    const { data } = await supabase
-      .from("work_entries")
-      .select(`
-        *,
-        workers(name)
-      `)
-      .order("date", { ascending: false })
-
-    if (data) setEntries(data)
-  }
-
+  //-----------------------------------
+  // GET THURSDAY WEEK START
+  //-----------------------------------
   function getWeekStart(selectedDate) {
     const d = new Date(selectedDate)
-
-    // Thursday = start of week
     const day = d.getDay()
 
     let diff
 
+    // Thursday = week start
     if (day >= 4) {
       diff = day - 4
     } else {
@@ -63,6 +44,66 @@ export default function WorkEntryPage() {
     return d.toISOString().split("T")[0]
   }
 
+  //-----------------------------------
+  // FIX OLD NULL WEEK_START DATA
+  //-----------------------------------
+  async function fixOldEntries() {
+    const { data } = await supabase
+      .from("work_entries")
+      .select("*")
+      .is("week_start", null)
+
+    if (!data || data.length === 0) return
+
+    for (const entry of data) {
+      const correctWeekStart = getWeekStart(entry.date)
+
+      await supabase
+        .from("work_entries")
+        .update({
+          week_start: correctWeekStart
+        })
+        .eq("id", entry.id)
+    }
+
+    fetchEntries()
+  }
+
+  //-----------------------------------
+  // FETCH WORKERS
+  //-----------------------------------
+  async function fetchWorkers() {
+    const { data } = await supabase
+      .from("workers")
+      .select("*")
+      .eq("status", "active")
+      .order("name")
+
+    if (data) {
+      setWorkers(data)
+    }
+  }
+
+  //-----------------------------------
+  // FETCH ENTRIES
+  //-----------------------------------
+  async function fetchEntries() {
+    const { data } = await supabase
+      .from("work_entries")
+      .select(`
+        *,
+        workers(name)
+      `)
+      .order("date", { ascending: false })
+
+    if (data) {
+      setEntries(data)
+    }
+  }
+
+  //-----------------------------------
+  // SAVE NEW ENTRY
+  //-----------------------------------
   async function handleSubmit(e) {
     e.preventDefault()
 
@@ -95,8 +136,8 @@ export default function WorkEntryPage() {
 
   return (
     <div className="min-h-screen bg-[#061226] text-white p-8">
-      
-      {/* Header */}
+
+      {/* HEADER */}
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold text-orange-500">
           Daily Work Entry
@@ -109,7 +150,7 @@ export default function WorkEntryPage() {
         </Link>
       </div>
 
-      {/* Form */}
+      {/* ENTRY FORM */}
       <div className="bg-[#0f223a] p-6 rounded-xl mb-8">
         <h2 className="text-2xl font-semibold mb-6">
           Record Daily Production
@@ -128,7 +169,10 @@ export default function WorkEntryPage() {
             <option value="">Select Worker</option>
 
             {workers.map((worker) => (
-              <option key={worker.id} value={worker.id}>
+              <option
+                key={worker.id}
+                value={worker.id}
+              >
                 {worker.name}
               </option>
             ))}
@@ -151,13 +195,13 @@ export default function WorkEntryPage() {
             required
           />
 
-          <button className="col-span-3 bg-orange-500 p-3 rounded font-semibold">
+          <button className="col-span-3 bg-orange-500 p-3 rounded font-semibold hover:opacity-90">
             Save Entry
           </button>
         </form>
       </div>
 
-      {/* History */}
+      {/* HISTORY */}
       <div className="bg-[#0f223a] p-6 rounded-xl">
         <h2 className="text-2xl font-semibold mb-6">
           Production History
