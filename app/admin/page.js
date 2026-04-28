@@ -142,6 +142,16 @@ export default async function AdminDashboard() {
               View worker balances
             </p>
           </div>
+          
+        </Link>
+          {/* Reports */}
+        <Link href="/reports">
+          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer h-full">
+            <h2 className="text-xl font-semibold">Reports</h2>
+            <p className="text-gray-400 mt-2">
+              View historical payroll reports
+            </p>
+          </div>
         </Link>
 
       </div>
