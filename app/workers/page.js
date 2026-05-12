@@ -9,7 +9,10 @@ export default function WorkersPage() {
 
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
+  const [cnic, setCnic] = useState("")
+  const [workerType, setWorkerType] = useState("patheer")
   const [rate, setRate] = useState("")
+  const [peshgi, setPeshgi] = useState("")
   const [joiningDate, setJoiningDate] = useState("")
   const [notes, setNotes] = useState("")
 
@@ -19,40 +22,59 @@ export default function WorkersPage() {
     fetchWorkers()
   }, [])
 
+  useEffect(() => {
+    fetchWorkers()
+  }, [filter])
+
+  //------------------------------------
+  // FETCH WORKERS
+  //------------------------------------
   async function fetchWorkers() {
-    let query = supabase.from("workers").select("*")
+    let query = supabase
+      .from("workers")
+      .select("*")
 
     if (filter !== "all") {
       query = query.eq("status", filter)
     }
 
-    const { data } = await query.order("created_at", {
-      ascending: false,
-    })
+    const { data } = await query.order(
+      "created_at",
+      { ascending: false }
+    )
 
     setWorkers(data || [])
   }
 
-  useEffect(() => {
-    fetchWorkers()
-  }, [filter])
-
+  //------------------------------------
+  // SAVE WORKER
+  //------------------------------------
   async function saveWorker() {
-    if (!name || !phone || !rate || !joiningDate) {
+    if (
+      !name ||
+      !phone ||
+      !workerType ||
+      !joiningDate
+    ) {
       alert("Please fill all required fields")
       return
+    }
+
+    const payload = {
+      name,
+      phone,
+      cnic,
+      worker_type: workerType,
+      default_rate: Number(rate) || 0,
+      peshgi: Number(peshgi) || 0,
+      joining_date: joiningDate,
+      notes,
     }
 
     if (editingWorker) {
       const { error } = await supabase
         .from("workers")
-        .update({
-          name,
-          phone,
-          default_rate: Number(rate),
-          joining_date: joiningDate,
-          notes,
-        })
+        .update(payload)
         .eq("id", editingWorker.id)
 
       if (error) {
@@ -66,11 +88,7 @@ export default function WorkersPage() {
         .from("workers")
         .insert([
           {
-            name,
-            phone,
-            default_rate: Number(rate),
-            joining_date: joiningDate,
-            notes,
+            ...payload,
             status: "active",
           },
         ])
@@ -87,24 +105,40 @@ export default function WorkersPage() {
     fetchWorkers()
   }
 
+  //------------------------------------
+  // RESET FORM
+  //------------------------------------
   function resetForm() {
     setName("")
     setPhone("")
+    setCnic("")
+    setWorkerType("patheer")
     setRate("")
+    setPeshgi("")
     setJoiningDate("")
     setNotes("")
     setEditingWorker(null)
   }
 
+  //------------------------------------
+  // EDIT WORKER
+  //------------------------------------
   function handleEdit(worker) {
     setEditingWorker(worker)
+
     setName(worker.name || "")
     setPhone(worker.phone || "")
+    setCnic(worker.cnic || "")
+    setWorkerType(worker.worker_type || "patheer")
     setRate(worker.default_rate || "")
+    setPeshgi(worker.peshgi || "")
     setJoiningDate(worker.joining_date || "")
     setNotes(worker.notes || "")
   }
 
+  //------------------------------------
+  // TERMINATE
+  //------------------------------------
   async function terminateWorker(workerId) {
     const confirmAction = confirm(
       "Are you sure you want to terminate this worker?"
@@ -130,6 +164,9 @@ export default function WorkersPage() {
     fetchWorkers()
   }
 
+  //------------------------------------
+  // REINSTATE
+  //------------------------------------
   async function reinstateWorker(workerId) {
     const { error } = await supabase
       .from("workers")
@@ -149,64 +186,135 @@ export default function WorkersPage() {
 
   return (
     <div className="min-h-screen bg-[#061226] text-white p-8">
+
+      {/* PAGE TITLE */}
       <h1 className="text-4xl font-bold text-orange-500 mb-8">
         Workers Management
       </h1>
 
-      {/* Add/Edit Worker Form */}
+      {/* FORM */}
       <div className="bg-[#0f223a] p-6 rounded-xl mb-8">
+
         <h2 className="text-2xl mb-6">
-          {editingWorker ? "Edit Worker" : "Add New Worker"}
+          {editingWorker
+            ? "Edit Worker"
+            : "Add New Worker"}
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
+          {/* NAME */}
           <input
             type="text"
             placeholder="Worker Name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) =>
+              setName(e.target.value)
+            }
             className="p-3 rounded bg-[#081a2f]"
           />
 
+          {/* PHONE */}
           <input
             type="text"
             placeholder="Phone Number"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) =>
+              setPhone(e.target.value)
+            }
             className="p-3 rounded bg-[#081a2f]"
           />
 
+          {/* CNIC */}
+          <input
+            type="text"
+            placeholder="CNIC"
+            value={cnic}
+            onChange={(e) =>
+              setCnic(e.target.value)
+            }
+            className="p-3 rounded bg-[#081a2f]"
+          />
+
+          {/* WORKER TYPE */}
+          <select
+            value={workerType}
+            onChange={(e) =>
+              setWorkerType(e.target.value)
+            }
+            className="p-3 rounded bg-[#081a2f]"
+          >
+            <option value="patheer">
+              Patheer
+            </option>
+
+            <option value="bharai">
+              Bharai
+            </option>
+
+            <option value="nakasi">
+              Nakasi
+            </option>
+
+            <option value="loading">
+              Loading
+            </option>
+          </select>
+
+          {/* RATE */}
           <input
             type="number"
-            placeholder="Default Rate Per 1000"
+            placeholder="Default Rate"
             value={rate}
-            onChange={(e) => setRate(e.target.value)}
+            onChange={(e) =>
+              setRate(e.target.value)
+            }
             className="p-3 rounded bg-[#081a2f]"
           />
 
+          {/* PESHGI */}
+          <input
+            type="number"
+            placeholder="Opening Peshgi"
+            value={peshgi}
+            onChange={(e) =>
+              setPeshgi(e.target.value)
+            }
+            className="p-3 rounded bg-[#081a2f]"
+          />
+
+          {/* JOINING DATE */}
           <input
             type="date"
             value={joiningDate}
-            onChange={(e) => setJoiningDate(e.target.value)}
+            onChange={(e) =>
+              setJoiningDate(e.target.value)
+            }
             className="p-3 rounded bg-[#081a2f]"
           />
 
+          {/* NOTES */}
           <textarea
             placeholder="Notes"
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="p-3 rounded bg-[#081a2f] md:col-span-2"
+            onChange={(e) =>
+              setNotes(e.target.value)
+            }
+            className="p-3 rounded bg-[#081a2f] md:col-span-2 lg:col-span-3"
           />
 
         </div>
 
+        {/* BUTTONS */}
         <div className="flex gap-4 mt-6">
+
           <button
             onClick={saveWorker}
             className="bg-orange-500 px-6 py-3 rounded-lg font-semibold"
           >
-            {editingWorker ? "Update Worker" : "Create Worker"}
+            {editingWorker
+              ? "Update Worker"
+              : "Create Worker"}
           </button>
 
           {editingWorker && (
@@ -217,11 +325,13 @@ export default function WorkersPage() {
               Cancel
             </button>
           )}
+
         </div>
       </div>
 
-      {/* Filter Buttons */}
+      {/* FILTERS */}
       <div className="flex gap-4 mb-6">
+
         <button
           onClick={() => setFilter("all")}
           className="bg-[#0f223a] px-4 py-2 rounded"
@@ -242,18 +352,23 @@ export default function WorkersPage() {
         >
           Terminated
         </button>
+
       </div>
 
-      {/* Workers Table */}
+      {/* TABLE */}
       <div className="bg-[#0f223a] rounded-xl p-6 overflow-x-auto">
+
         <table className="w-full text-left">
+
           <thead>
-            <tr className="border-b border-gray-700">
-              <th>Name</th>
-              <th>Phone</th>
-              <th>Rate</th>
-              <th>Status</th>
-              <th>Actions</th>
+            <tr className="border-b border-gray-700 text-orange-500">
+              <th className="pb-3">Name</th>
+              <th className="pb-3">Type</th>
+              <th className="pb-3">Phone</th>
+              <th className="pb-3">Rate</th>
+              <th className="pb-3">Peshgi</th>
+              <th className="pb-3">Status</th>
+              <th className="pb-3">Actions</th>
             </tr>
           </thead>
 
@@ -263,14 +378,34 @@ export default function WorkersPage() {
                 key={worker.id}
                 className="border-b border-gray-800"
               >
-                <td className="py-4">{worker.name}</td>
+                <td className="py-4">
+                  {worker.name}
+                </td>
+
+                <td className="capitalize">
+                  {worker.worker_type}
+                </td>
+
                 <td>{worker.phone}</td>
-                <td>Rs {worker.default_rate}</td>
-                <td>{worker.status}</td>
+
+                <td>
+                  Rs {worker.default_rate}
+                </td>
+
+                <td>
+                  Rs {worker.peshgi || 0}
+                </td>
+
+                <td className="capitalize">
+                  {worker.status}
+                </td>
 
                 <td className="flex gap-3 py-4">
+
                   <button
-                    onClick={() => handleEdit(worker)}
+                    onClick={() =>
+                      handleEdit(worker)
+                    }
                     className="text-blue-400"
                   >
                     Edit
@@ -279,7 +414,9 @@ export default function WorkersPage() {
                   {worker.status === "active" ? (
                     <button
                       onClick={() =>
-                        terminateWorker(worker.id)
+                        terminateWorker(
+                          worker.id
+                        )
                       }
                       className="text-red-400"
                     >
@@ -288,17 +425,21 @@ export default function WorkersPage() {
                   ) : (
                     <button
                       onClick={() =>
-                        reinstateWorker(worker.id)
+                        reinstateWorker(
+                          worker.id
+                        )
                       }
                       className="text-green-400"
                     >
                       Reinstate
                     </button>
                   )}
+
                 </td>
               </tr>
             ))}
           </tbody>
+
         </table>
       </div>
     </div>
