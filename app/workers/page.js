@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "../../lib/supabase"
 
 export default function WorkersPage() {
+
   const [workers, setWorkers] = useState([])
   const [filter, setFilter] = useState("all")
 
@@ -12,7 +13,7 @@ export default function WorkersPage() {
   const [cnic, setCnic] = useState("")
   const [workerType, setWorkerType] = useState("patheer")
   const [rate, setRate] = useState("")
-  const [peshgi, setPeshgi] = useState("")
+  const [openingPeshgi, setOpeningPeshgi] = useState("")
   const [joiningDate, setJoiningDate] = useState("")
   const [notes, setNotes] = useState("")
 
@@ -26,10 +27,11 @@ export default function WorkersPage() {
     fetchWorkers()
   }, [filter])
 
-  //------------------------------------
+  //----------------------------------------
   // FETCH WORKERS
-  //------------------------------------
+  //----------------------------------------
   async function fetchWorkers() {
+
     let query = supabase
       .from("workers")
       .select("*")
@@ -38,18 +40,56 @@ export default function WorkersPage() {
       query = query.eq("status", filter)
     }
 
-    const { data } = await query.order(
+    const { data: workersData } = await query.order(
       "created_at",
       { ascending: false }
     )
 
-    setWorkers(data || [])
+    if (!workersData) return
+
+    const enrichedWorkers = await Promise.all(
+      workersData.map(async (worker) => {
+
+        const { data: transactions } = await supabase
+          .from("worker_financial_transactions")
+          .select("*")
+          .eq("worker_id", worker.id)
+
+        let balance = 0
+
+        transactions?.forEach((t) => {
+
+          if (
+            t.transaction_type === "peshgi" ||
+            t.transaction_type === "advance" ||
+            t.transaction_type === "electricity" ||
+            t.transaction_type === "deduction"
+          ) {
+            balance += Number(t.amount)
+          }
+
+          if (
+            t.transaction_type === "return"
+          ) {
+            balance -= Number(t.amount)
+          }
+        })
+
+        return {
+          ...worker,
+          current_peshgi: balance
+        }
+      })
+    )
+
+    setWorkers(enrichedWorkers)
   }
 
-  //------------------------------------
+  //----------------------------------------
   // SAVE WORKER
-  //------------------------------------
+  //----------------------------------------
   async function saveWorker() {
+
     if (
       !name ||
       !phone ||
@@ -60,21 +100,24 @@ export default function WorkersPage() {
       return
     }
 
-    const payload = {
+    const workerPayload = {
       name,
       phone,
       cnic,
       worker_type: workerType,
       default_rate: Number(rate) || 0,
-      peshgi: Number(peshgi) || 0,
       joining_date: joiningDate,
       notes,
     }
 
+    //------------------------------------
+    // UPDATE EXISTING
+    //------------------------------------
     if (editingWorker) {
+
       const { error } = await supabase
         .from("workers")
-        .update(payload)
+        .update(workerPayload)
         .eq("id", editingWorker.id)
 
       if (error) {
@@ -83,19 +126,49 @@ export default function WorkersPage() {
       }
 
       alert("Worker updated successfully")
-    } else {
-      const { error } = await supabase
-        .from("workers")
-        .insert([
-          {
-            ...payload,
-            status: "active",
-          },
-        ])
+    }
+
+    //------------------------------------
+    // CREATE NEW
+    //------------------------------------
+    else {
+
+      const { data: newWorker, error } =
+        await supabase
+          .from("workers")
+          .insert([
+            {
+              ...workerPayload,
+              status: "active",
+            }
+          ])
+          .select()
+          .single()
 
       if (error) {
         alert(error.message)
         return
+      }
+
+      //----------------------------------
+      // CREATE OPENING PESHGI
+      //----------------------------------
+      if (
+        openingPeshgi &&
+        Number(openingPeshgi) > 0
+      ) {
+
+        await supabase
+          .from("worker_financial_transactions")
+          .insert([
+            {
+              worker_id: newWorker.id,
+              transaction_type: "peshgi",
+              amount: Number(openingPeshgi),
+              transaction_date: joiningDate,
+              notes: "Opening peshgi"
+            }
+          ])
       }
 
       alert("Worker created successfully")
@@ -105,25 +178,27 @@ export default function WorkersPage() {
     fetchWorkers()
   }
 
-  //------------------------------------
+  //----------------------------------------
   // RESET FORM
-  //------------------------------------
+  //----------------------------------------
   function resetForm() {
+
     setName("")
     setPhone("")
     setCnic("")
     setWorkerType("patheer")
     setRate("")
-    setPeshgi("")
+    setOpeningPeshgi("")
     setJoiningDate("")
     setNotes("")
     setEditingWorker(null)
   }
 
-  //------------------------------------
-  // EDIT WORKER
-  //------------------------------------
+  //----------------------------------------
+  // EDIT
+  //----------------------------------------
   function handleEdit(worker) {
+
     setEditingWorker(worker)
 
     setName(worker.name || "")
@@ -131,15 +206,15 @@ export default function WorkersPage() {
     setCnic(worker.cnic || "")
     setWorkerType(worker.worker_type || "patheer")
     setRate(worker.default_rate || "")
-    setPeshgi(worker.peshgi || "")
     setJoiningDate(worker.joining_date || "")
     setNotes(worker.notes || "")
   }
 
-  //------------------------------------
+  //----------------------------------------
   // TERMINATE
-  //------------------------------------
+  //----------------------------------------
   async function terminateWorker(workerId) {
+
     const confirmAction = confirm(
       "Are you sure you want to terminate this worker?"
     )
@@ -164,10 +239,11 @@ export default function WorkersPage() {
     fetchWorkers()
   }
 
-  //------------------------------------
+  //----------------------------------------
   // REINSTATE
-  //------------------------------------
+  //----------------------------------------
   async function reinstateWorker(workerId) {
+
     const { error } = await supabase
       .from("workers")
       .update({
@@ -187,7 +263,7 @@ export default function WorkersPage() {
   return (
     <div className="min-h-screen bg-[#061226] text-white p-8">
 
-      {/* PAGE TITLE */}
+      {/* TITLE */}
       <h1 className="text-4xl font-bold text-orange-500 mb-8">
         Workers Management
       </h1>
@@ -203,7 +279,6 @@ export default function WorkersPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-          {/* NAME */}
           <input
             type="text"
             placeholder="Worker Name"
@@ -214,7 +289,6 @@ export default function WorkersPage() {
             className="p-3 rounded bg-[#081a2f]"
           />
 
-          {/* PHONE */}
           <input
             type="text"
             placeholder="Phone Number"
@@ -225,7 +299,6 @@ export default function WorkersPage() {
             className="p-3 rounded bg-[#081a2f]"
           />
 
-          {/* CNIC */}
           <input
             type="text"
             placeholder="CNIC"
@@ -236,7 +309,6 @@ export default function WorkersPage() {
             className="p-3 rounded bg-[#081a2f]"
           />
 
-          {/* WORKER TYPE */}
           <select
             value={workerType}
             onChange={(e) =>
@@ -244,24 +316,12 @@ export default function WorkersPage() {
             }
             className="p-3 rounded bg-[#081a2f]"
           >
-            <option value="patheer">
-              Patheer
-            </option>
-
-            <option value="bharai">
-              Bharai
-            </option>
-
-            <option value="nakasi">
-              Nakasi
-            </option>
-
-            <option value="loading">
-              Loading
-            </option>
+            <option value="patheer">Patheer</option>
+            <option value="bharai">Bharai</option>
+            <option value="nakasi">Nakasi</option>
+            <option value="loading">Loading</option>
           </select>
 
-          {/* RATE */}
           <input
             type="number"
             placeholder="Default Rate"
@@ -272,18 +332,16 @@ export default function WorkersPage() {
             className="p-3 rounded bg-[#081a2f]"
           />
 
-          {/* PESHGI */}
           <input
             type="number"
             placeholder="Opening Peshgi"
-            value={peshgi}
+            value={openingPeshgi}
             onChange={(e) =>
-              setPeshgi(e.target.value)
+              setOpeningPeshgi(e.target.value)
             }
             className="p-3 rounded bg-[#081a2f]"
           />
 
-          {/* JOINING DATE */}
           <input
             type="date"
             value={joiningDate}
@@ -293,19 +351,17 @@ export default function WorkersPage() {
             className="p-3 rounded bg-[#081a2f]"
           />
 
-          {/* NOTES */}
           <textarea
             placeholder="Notes"
             value={notes}
             onChange={(e) =>
               setNotes(e.target.value)
             }
-            className="p-3 rounded bg-[#081a2f] md:col-span-2 lg:col-span-3"
+            className="p-3 rounded bg-[#081a2f] lg:col-span-3"
           />
 
         </div>
 
-        {/* BUTTONS */}
         <div className="flex gap-4 mt-6">
 
           <button
@@ -366,18 +422,21 @@ export default function WorkersPage() {
               <th className="pb-3">Type</th>
               <th className="pb-3">Phone</th>
               <th className="pb-3">Rate</th>
-              <th className="pb-3">Peshgi</th>
+              <th className="pb-3">Current Peshgi</th>
               <th className="pb-3">Status</th>
               <th className="pb-3">Actions</th>
             </tr>
           </thead>
 
           <tbody>
+
             {workers.map((worker) => (
+
               <tr
                 key={worker.id}
                 className="border-b border-gray-800"
               >
+
                 <td className="py-4">
                   {worker.name}
                 </td>
@@ -386,14 +445,16 @@ export default function WorkersPage() {
                   {worker.worker_type}
                 </td>
 
-                <td>{worker.phone}</td>
+                <td>
+                  {worker.phone}
+                </td>
 
                 <td>
                   Rs {worker.default_rate}
                 </td>
 
-                <td>
-                  Rs {worker.peshgi || 0}
+                <td className="text-orange-500 font-semibold">
+                  Rs {worker.current_peshgi}
                 </td>
 
                 <td className="capitalize">
@@ -412,6 +473,7 @@ export default function WorkersPage() {
                   </button>
 
                   {worker.status === "active" ? (
+
                     <button
                       onClick={() =>
                         terminateWorker(
@@ -422,7 +484,9 @@ export default function WorkersPage() {
                     >
                       Terminate
                     </button>
+
                   ) : (
+
                     <button
                       onClick={() =>
                         reinstateWorker(
@@ -433,11 +497,14 @@ export default function WorkersPage() {
                     >
                       Reinstate
                     </button>
+
                   )}
 
                 </td>
               </tr>
+
             ))}
+
           </tbody>
 
         </table>
