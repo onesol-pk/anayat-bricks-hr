@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState } from "react"
 import { supabase } from "../../lib/supabase"
 
@@ -228,9 +229,19 @@ export default function WorkersPage() {
 
   return (
     <div className="min-h-screen bg-[#061226] text-white p-8">
-      <h1 className="text-4xl font-bold text-orange-500 mb-8">
-        Workers Management
-      </h1>
+      <div className="flex justify-between items-center mb-8">
+
+  <h1 className="text-4xl font-bold text-orange-500">
+    Workers Management
+  </h1>
+
+  <Link href="/admin">
+    <button className="bg-[#0f223a] px-4 py-2 rounded-lg">
+      Back to Dashboard
+    </button>
+  </Link>
+
+</div>
 
       <div className="bg-[#0f223a] p-6 rounded-xl mb-8">
         <h2 className="text-2xl mb-6">
