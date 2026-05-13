@@ -106,13 +106,23 @@ export default async function AdminDashboard() {
 
         {/* Work Entry */}
         <Link href="/work-entry">
-        <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
-          <h2 className="text-xl font-semibold">Daily Work Entry</h2>
-          <p className="text-gray-400 mt-2">
-            Record daily brick production
-          </p>
-        </div>
-      </Link>
+          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
+            <h2 className="text-xl font-semibold">Daily Work Entry</h2>
+            <p className="text-gray-400 mt-2">
+              Record daily brick production
+            </p>
+          </div>
+        </Link>
+
+        {/* Additions to Khatta */}
+        <Link href="/additions">
+          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
+            <h2 className="text-xl font-semibold">Additions to Khatta</h2>
+            <p className="text-gray-400 mt-2">
+              Add electricity, loan and damage
+            </p>
+          </div>
+        </Link>
 
         {/* Deductions */}
         <Link href="/deductions">
@@ -125,14 +135,14 @@ export default async function AdminDashboard() {
         </Link>
 
         {/* Payroll */}
-          <Link href="/payroll">
-            <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer h-full">
-              <h2 className="text-xl font-semibold">Payroll</h2>
-              <p className="text-gray-400 mt-2">
-                Run weekly settlements & payments
-              </p>
-            </div>
-          </Link>
+        <Link href="/payroll">
+          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer h-full">
+            <h2 className="text-xl font-semibold">Payroll</h2>
+            <p className="text-gray-400 mt-2">
+              Run weekly settlements & payments
+            </p>
+          </div>
+        </Link>
 
         {/* Ledger */}
         <Link href="/ledger">
@@ -142,9 +152,9 @@ export default async function AdminDashboard() {
               View worker balances
             </p>
           </div>
-          
         </Link>
-          {/* Reports */}
+
+        {/* Reports */}
         <Link href="/reports">
           <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer h-full">
             <h2 className="text-xl font-semibold">Reports</h2>
