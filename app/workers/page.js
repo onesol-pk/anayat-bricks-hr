@@ -10,12 +10,14 @@ function calculatePeshgiBalance(transactions = []) {
 
     // INCREASES PESHGI
     if (
-      t.transaction_type === "peshgi" ||
-      t.transaction_type === "advance" ||
-      t.transaction_type === "electricity"
-    ) {
-      return sum + amount
-    }
+  t.transaction_type === "peshgi" ||
+  t.transaction_type === "advance" ||
+  t.transaction_type === "electricity" ||
+  t.transaction_type === "loan" ||
+  t.transaction_type === "damage"
+) {
+  return sum + amount
+}
 
     // REDUCES PESHGI
     if (
