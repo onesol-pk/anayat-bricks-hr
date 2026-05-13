@@ -96,6 +96,22 @@ export default function DeductionsPage() {
           week_start: getWeekStart(),
         },
       ])
+    const { error: txError } = await supabase
+  .from("worker_financial_transactions")
+  .insert([
+    {
+      worker_id: workerId,
+      transaction_type: "deduction",
+      amount: Number(amount),
+      transaction_date: date,
+      notes: notes || deductionType,
+    }
+  ])
+
+if (txError) {
+  alert(txError.message)
+  return
+}
 
     if (error) {
       alert(error.message)
