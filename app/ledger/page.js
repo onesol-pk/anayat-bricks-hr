@@ -1,202 +1,596 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { supabase } from "../../lib/supabase"
 
+function formatMoney(value) {
+  const number = Number(value) || 0
+  return new Intl.NumberFormat("en-PK", {
+    maximumFractionDigits: 0,
+  }).format(Math.round(number))
+}
+
+function toDateInput(date) {
+  return date.toISOString().split("T")[0]
+}
+
+function getCurrentWeekRange() {
+  const now = new Date()
+  const day = now.getDay()
+
+  // Thursday = start of week
+  const diffToThursday = day >= 4 ? day - 4 : day + 3
+
+  const start = new Date(now)
+  start.setDate(now.getDate() - diffToThursday)
+  start.setHours(0, 0, 0, 0)
+
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  end.setHours(23, 59, 59, 999)
+
+  return {
+    start: toDateInput(start),
+    end: toDateInput(end),
+  }
+}
+
+function calculateCurrentPeshgi(transactions = []) {
+  return transactions.reduce((sum, tx) => {
+    const amount = Number(tx.amount) || 0
+
+    switch (tx.transaction_type) {
+      case "peshgi":
+      case "advance":
+      case "electricity":
+      case "loan":
+      case "damage":
+        return sum + amount
+
+      case "return":
+        return sum - amount
+
+      default:
+        return sum
+    }
+  }, 0)
+}
+
+const typeOrder = {
+  Work: 1,
+  Advance: 2,
+  Deduction: 3,
+  Peshgi: 4,
+  Electricity: 5,
+  Loan: 6,
+  Damage: 7,
+  Return: 8,
+}
+
 export default function LedgerPage() {
+  const currentWeek = getCurrentWeekRange()
+
   const [workers, setWorkers] = useState([])
   const [selectedWorker, setSelectedWorker] = useState("")
-  const [ledger, setLedger] = useState([])
+  const [dateFrom, setDateFrom] = useState(currentWeek.start)
+  const [dateTo, setDateTo] = useState(currentWeek.end)
+
+  const [workerInfo, setWorkerInfo] = useState(null)
+  const [transactions, setTransactions] = useState([])
   const [summary, setSummary] = useState({
-    earnings: 0,
-    advances: 0,
-    deductions: 0,
-    balance: 0
+    bricksMade: 0,
+    totalEarnings: 0,
+    totalAdvances: 0,
+    totalDeductions: 0,
+    currentPeshgi: 0,
+    finalWeeklySalary: 0,
   })
+
+  const [loading, setLoading] = useState(false)
+  const [settlementStatus, setSettlementStatus] = useState(null)
 
   useEffect(() => {
     fetchWorkers()
   }, [])
 
   useEffect(() => {
+    if (workers.length > 0 && !selectedWorker) {
+      setSelectedWorker(workers[0].id)
+    }
+  }, [workers, selectedWorker])
+
+  useEffect(() => {
     if (selectedWorker) {
       fetchLedger()
     }
-  }, [selectedWorker])
+  }, [selectedWorker, dateFrom, dateTo])
 
   async function fetchWorkers() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("workers")
       .select("*")
+      .order("name", { ascending: true })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
 
     setWorkers(data || [])
   }
 
   async function fetchLedger() {
-    // Work entries
-    const { data: workData } = await supabase
-      .from("work_entries")
-      .select("*")
-      .eq("worker_id", selectedWorker)
+    if (!selectedWorker) return
 
-    // Advances
-    const { data: advanceData } = await supabase
-      .from("advances")
-      .select("*")
-      .eq("worker_id", selectedWorker)
+    setLoading(true)
 
-    // Deductions
-    const { data: deductionData } = await supabase
-      .from("deductions")
-      .select("*")
-      .eq("worker_id", selectedWorker)
+    try {
+      const { data: workerData, error: workerError } = await supabase
+        .from("workers")
+        .select("*")
+        .eq("id", selectedWorker)
+        .single()
 
-    let transactions = []
+      if (workerError) {
+        throw workerError
+      }
 
-    let totalEarnings = 0
-    let totalAdvances = 0
-    let totalDeductions = 0
+      const [
+        workRes,
+        advancesRes,
+        deductionsRes,
+        financialHistoryRes,
+        financialAllRes,
+        settlementRes,
+      ] = await Promise.all([
+        supabase
+          .from("work_entries")
+          .select("*")
+          .eq("worker_id", selectedWorker)
+          .gte("date", dateFrom)
+          .lte("date", dateTo),
 
-    // Work transactions
-    workData?.forEach((item) => {
-      const earning = (item.bricks / 1000) * item.rate_per_1000
-      totalEarnings += earning
+        supabase
+          .from("advances")
+          .select("*")
+          .eq("worker_id", selectedWorker)
+          .gte("date", dateFrom)
+          .lte("date", dateTo),
 
-      transactions.push({
-        type: "Work",
-        date: item.date,
-        details: `${item.bricks} bricks`,
-        amount: earning
+        supabase
+          .from("deductions")
+          .select("*")
+          .eq("worker_id", selectedWorker)
+          .gte("date", dateFrom)
+          .lte("date", dateTo),
+
+        supabase
+          .from("worker_financial_transactions")
+          .select("*")
+          .eq("worker_id", selectedWorker)
+          .in("transaction_type", [
+            "peshgi",
+            "electricity",
+            "loan",
+            "damage",
+            "return",
+          ])
+          .gte("transaction_date", dateFrom)
+          .lte("transaction_date", dateTo),
+
+        supabase
+          .from("worker_financial_transactions")
+          .select("transaction_type, amount")
+          .eq("worker_id", selectedWorker)
+          .in("transaction_type", [
+            "peshgi",
+            "advance",
+            "electricity",
+            "loan",
+            "damage",
+            "return",
+          ]),
+
+        supabase
+          .from("weekly_settlements")
+          .select("*")
+          .eq("worker_id", selectedWorker)
+          .eq("week_start", dateFrom)
+          .maybeSingle(),
+      ])
+
+      if (workRes.error) throw workRes.error
+      if (advancesRes.error) throw advancesRes.error
+      if (deductionsRes.error) throw deductionsRes.error
+      if (financialHistoryRes.error) throw financialHistoryRes.error
+      if (financialAllRes.error) throw financialAllRes.error
+      if (settlementRes.error && settlementRes.error.code !== "PGRST116") {
+        throw settlementRes.error
+      }
+
+      const workData = workRes.data || []
+      const advancesData = advancesRes.data || []
+      const deductionsData = deductionsRes.data || []
+      const financialHistoryData = financialHistoryRes.data || []
+      const financialAllData = financialAllRes.data || []
+
+      const rate = Number(workerData.default_rate) || 0
+
+      const bricksMade = workData.reduce((sum, item) => {
+        return sum + (Number(item.bricks) || 0)
+      }, 0)
+
+      const totalEarnings = workData.reduce((sum, item) => {
+        const bricks = Number(item.bricks) || 0
+        return sum + (bricks / 1000) * rate
+      }, 0)
+
+      const totalAdvances = advancesData.reduce((sum, item) => {
+        return sum + (Number(item.amount) || 0)
+      }, 0)
+
+      const totalDeductions = deductionsData.reduce((sum, item) => {
+        return sum + (Number(item.amount) || 0)
+      }, 0)
+
+      const currentPeshgi = calculateCurrentPeshgi(financialAllData)
+
+      const finalWeeklySalary =
+        totalEarnings - totalAdvances - totalDeductions
+
+      const combinedTransactions = []
+
+      workData.forEach((item) => {
+        const bricks = Number(item.bricks) || 0
+        const earning = (bricks / 1000) * rate
+
+        combinedTransactions.push({
+          date: item.date,
+          type: "Work",
+          details: `${bricks} bricks`,
+          amount: earning,
+        })
       })
-    })
 
-    // Advance transactions
-    advanceData?.forEach((item) => {
-      totalAdvances += item.amount
+      advancesData.forEach((item) => {
+        const amount = Number(item.amount) || 0
 
-      transactions.push({
-        type: "Advance",
-        date: item.date,
-        details: "Advance Payment",
-        amount: -item.amount
+        combinedTransactions.push({
+          date: item.date,
+          type: "Advance",
+          details: item.notes || "Advance Payment",
+          amount: -amount,
+        })
       })
-    })
 
-    // Deduction transactions
-    deductionData?.forEach((item) => {
-      totalDeductions += item.amount
+      deductionsData.forEach((item) => {
+        const amount = Number(item.amount) || 0
 
-      transactions.push({
-        type: "Deduction",
-        date: item.date,
-        details: item.deduction_type,
-        amount: -item.amount
+        combinedTransactions.push({
+          date: item.date,
+          type: "Deduction",
+          details: item.deduction_type || "Deduction",
+          amount: -amount,
+        })
       })
-    })
 
-    transactions.sort(
-      (a, b) => new Date(a.date) - new Date(b.date)
+      financialHistoryData.forEach((item) => {
+        const amount = Number(item.amount) || 0
+
+        const typeLabels = {
+          peshgi: "Peshgi",
+          electricity: "Electricity",
+          loan: "Loan",
+          damage: "Damage",
+          return: "Return",
+        }
+
+        combinedTransactions.push({
+          date: item.transaction_date,
+          type: typeLabels[item.transaction_type] || item.transaction_type,
+          details: item.notes || typeLabels[item.transaction_type] || "Entry",
+          amount: -amount,
+        })
+      })
+
+      combinedTransactions.sort((a, b) => {
+        const dateDiff = new Date(a.date) - new Date(b.date)
+        if (dateDiff !== 0) return dateDiff
+        return (typeOrder[a.type] || 99) - (typeOrder[b.type] || 99)
+      })
+
+      setWorkerInfo(workerData)
+      setTransactions(combinedTransactions)
+      setSummary({
+        bricksMade,
+        totalEarnings,
+        totalAdvances,
+        totalDeductions,
+        currentPeshgi,
+        finalWeeklySalary,
+      })
+      setSettlementStatus(settlementRes.data || null)
+    } catch (error) {
+      alert(error.message || "Failed to load ledger")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function markPaid() {
+    if (!selectedWorker) return
+
+    const payload = {
+      worker_id: selectedWorker,
+      week_start: dateFrom,
+      total_bricks: summary.bricksMade,
+      earnings: summary.totalEarnings,
+      advances: summary.totalAdvances,
+      deductions: summary.totalDeductions,
+      previous_balance: summary.currentPeshgi,
+      final_balance: summary.finalWeeklySalary,
+      payment_status: "paid",
+      paid_at: new Date().toISOString(),
+    }
+
+    const { data: existing, error: existingError } = await supabase
+      .from("weekly_settlements")
+      .select("id")
+      .eq("worker_id", selectedWorker)
+      .eq("week_start", dateFrom)
+      .maybeSingle()
+
+    if (existingError && existingError.code !== "PGRST116") {
+      alert(existingError.message)
+      return
+    }
+
+    const action = existing?.id
+      ? supabase
+          .from("weekly_settlements")
+          .update(payload)
+          .eq("id", existing.id)
+      : supabase.from("weekly_settlements").insert([payload])
+
+    const { error } = await action
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    alert("Worker marked paid")
+    fetchLedger()
+  }
+
+  function printSlip() {
+    if (!selectedWorker) return
+
+    window.open(
+      `/ledger/${selectedWorker}/print?from=${dateFrom}&to=${dateTo}`,
+      "_blank",
+      "noopener,noreferrer"
     )
+  }
 
-    setLedger(transactions)
-
-    setSummary({
-      earnings: totalEarnings,
-      advances: totalAdvances,
-      deductions: totalDeductions,
-      balance:
-        totalEarnings -
-        totalAdvances -
-        totalDeductions
-    })
+  function resetToCurrentWeek() {
+    const range = getCurrentWeekRange()
+    setDateFrom(range.start)
+    setDateTo(range.end)
   }
 
   return (
     <div className="min-h-screen bg-[#061226] text-white p-8">
-      <h1 className="text-4xl font-bold text-orange-500 mb-8">
-        Worker Ledger
-      </h1>
+      <div className="flex items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-4xl font-bold text-orange-500">
+            Worker Ledger
+          </h1>
+          {workerInfo && (
+            <p className="text-gray-400 mt-2">
+              {workerInfo.worker_type?.toUpperCase()} - {workerInfo.name}
+            </p>
+          )}
+        </div>
 
-      {/* Worker Selector */}
-      <select
-        value={selectedWorker}
-        onChange={(e) => setSelectedWorker(e.target.value)}
-        className="w-full max-w-md p-3 rounded bg-[#0f223a] mb-8"
-      >
-        <option value="">Select Worker</option>
-        {workers.map((worker) => (
-          <option key={worker.id} value={worker.id}>
-            {worker.name}
-          </option>
-        ))}
-      </select>
+        <Link href="/admin">
+          <button className="bg-[#0f223a] px-4 py-2 rounded-lg">
+            Back to Dashboard
+          </button>
+        </Link>
+      </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        <div className="bg-[#0f223a] p-5 rounded-xl">
-          <p>Total Earnings</p>
-          <h2 className="text-2xl text-orange-500">
-            Rs {summary.earnings}
+      <div className="bg-[#0f223a] p-6 rounded-xl mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+          <div className="lg:col-span-2">
+            <label className="block text-sm text-gray-400 mb-2">
+              Worker
+            </label>
+            <select
+              value={selectedWorker}
+              onChange={(e) => setSelectedWorker(e.target.value)}
+              className="w-full p-3 rounded bg-[#081a2f] border border-gray-700"
+            >
+              <option value="">Select Worker</option>
+              {workers.map((worker) => (
+                <option key={worker.id} value={worker.id}>
+                  {worker.worker_type?.toUpperCase()} - {worker.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">
+              From
+            </label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full p-3 rounded bg-[#081a2f] border border-gray-700"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">
+              To
+            </label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full p-3 rounded bg-[#081a2f] border border-gray-700"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3 mt-4">
+          <button
+            type="button"
+            onClick={resetToCurrentWeek}
+            className="bg-[#081a2f] px-4 py-2 rounded-lg border border-gray-700"
+          >
+            Current Week
+          </button>
+
+          <span className="text-gray-400 self-center">
+            Thursday to Wednesday cycle
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+        <div className="bg-[#0f223a] p-6 rounded-xl">
+          <p className="text-gray-400">Bricks Made</p>
+          <h2 className="text-3xl font-bold text-orange-500 mt-2">
+            {formatMoney(summary.bricksMade)}
           </h2>
         </div>
 
-        <div className="bg-[#0f223a] p-5 rounded-xl">
-          <p>Total Advances</p>
-          <h2 className="text-2xl text-orange-500">
-            Rs {summary.advances}
+        <div className="bg-[#0f223a] p-6 rounded-xl">
+          <p className="text-gray-400">Total Earnings</p>
+          <h2 className="text-3xl font-bold text-orange-500 mt-2">
+            Rs {formatMoney(summary.totalEarnings)}
           </h2>
         </div>
 
-        <div className="bg-[#0f223a] p-5 rounded-xl">
-          <p>Total Deductions</p>
-          <h2 className="text-2xl text-orange-500">
-            Rs {summary.deductions}
+        <div className="bg-[#0f223a] p-6 rounded-xl">
+          <p className="text-gray-400">Total Advances</p>
+          <h2 className="text-3xl font-bold text-orange-500 mt-2">
+            Rs {formatMoney(summary.totalAdvances)}
           </h2>
         </div>
 
-        <div className="bg-[#0f223a] p-5 rounded-xl">
-          <p>Current Balance</p>
-          <h2 className="text-2xl text-orange-500">
-            Rs {summary.balance}
+        <div className="bg-[#0f223a] p-6 rounded-xl">
+          <p className="text-gray-400">Total Deductions</p>
+          <h2 className="text-3xl font-bold text-orange-500 mt-2">
+            Rs {formatMoney(summary.totalDeductions)}
+          </h2>
+        </div>
+
+        <div className="bg-[#0f223a] p-6 rounded-xl">
+          <p className="text-gray-400">Current Peshgi</p>
+          <h2 className="text-3xl font-bold text-orange-500 mt-2">
+            Rs {formatMoney(summary.currentPeshgi)}
+          </h2>
+        </div>
+
+        <div className="bg-[#0f223a] p-6 rounded-xl">
+          <p className="text-gray-400">Final Weekly Salary</p>
+          <h2 className="text-3xl font-bold text-orange-500 mt-2">
+            Rs {formatMoney(summary.finalWeeklySalary)}
           </h2>
         </div>
       </div>
 
-      {/* Transaction Table */}
+      <div className="bg-[#0f223a] p-6 rounded-xl mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-semibold">Actions</h2>
+            <p className="text-gray-400 mt-1">
+              {settlementStatus?.payment_status === "paid"
+                ? "This week is already marked as paid"
+                : "Mark the selected week as paid after reviewing the ledger"}
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={markPaid}
+              disabled={!selectedWorker || loading}
+              className="bg-green-600 px-6 py-3 rounded-lg font-semibold disabled:opacity-50"
+            >
+              Mark Paid
+            </button>
+
+            <button
+              onClick={printSlip}
+              disabled={!selectedWorker || loading}
+              className="bg-orange-500 px-6 py-3 rounded-lg font-semibold disabled:opacity-50"
+            >
+              Print
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-[#0f223a] rounded-xl p-6">
-        <h2 className="text-2xl mb-4">
-          Transaction History
-        </h2>
+        <div className="flex items-center justify-between gap-3 mb-6">
+          <h2 className="text-2xl font-semibold">
+            Transaction History
+          </h2>
+          <span className="text-gray-400">
+            {dateFrom} to {dateTo}
+          </span>
+        </div>
 
-        <table className="w-full">
-          <thead>
-            <tr className="text-left border-b border-gray-600">
-              <th className="py-2">Date</th>
-              <th>Type</th>
-              <th>Details</th>
-              <th>Amount</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {ledger.map((item, index) => (
-              <tr key={index} className="border-b border-gray-700">
-                <td className="py-3">{item.date}</td>
-                <td>{item.type}</td>
-                <td>{item.details}</td>
-                <td
-                  className={
-                    item.amount >= 0
-                      ? "text-green-400"
-                      : "text-red-400"
-                  }
-                >
-                  Rs {item.amount}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-gray-700 text-orange-400">
+                <th className="py-3">Date</th>
+                <th className="py-3">Type</th>
+                <th className="py-3">Details</th>
+                <th className="py-3">Amount</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td className="py-6 text-gray-400" colSpan={4}>
+                    Loading ledger...
+                  </td>
+                </tr>
+              ) : transactions.length === 0 ? (
+                <tr>
+                  <td className="py-6 text-gray-400" colSpan={4}>
+                    No transactions found for this period.
+                  </td>
+                </tr>
+              ) : (
+                transactions.map((item, index) => (
+                  <tr key={index} className="border-b border-gray-800">
+                    <td className="py-3">{item.date}</td>
+                    <td>{item.type}</td>
+                    <td>{item.details}</td>
+                    <td
+                      className={
+                        Number(item.amount) >= 0
+                          ? "text-green-400"
+                          : "text-red-400"
+                      }
+                    >
+                      Rs {formatMoney(item.amount)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
