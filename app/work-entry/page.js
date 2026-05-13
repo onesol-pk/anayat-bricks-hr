@@ -2,12 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+import { supabase } from "../../lib/supabase"
 
 export default function WorkEntryPage() {
   const [workers, setWorkers] = useState([])
@@ -20,19 +15,14 @@ export default function WorkEntryPage() {
   useEffect(() => {
     fetchWorkers()
     fetchEntries()
-    fixOldEntries()
   }, [])
 
-  //-----------------------------------
-  // GET THURSDAY WEEK START
-  //-----------------------------------
   function getWeekStart(selectedDate) {
     const d = new Date(selectedDate)
     const day = d.getDay()
 
-    let diff
-
     // Thursday = week start
+    let diff
     if (day >= 4) {
       diff = day - 4
     } else {
@@ -40,85 +30,59 @@ export default function WorkEntryPage() {
     }
 
     d.setDate(d.getDate() - diff)
-
     return d.toISOString().split("T")[0]
   }
 
-  //-----------------------------------
-  // FIX OLD NULL WEEK_START DATA
-  //-----------------------------------
-  async function fixOldEntries() {
-    const { data } = await supabase
-      .from("work_entries")
-      .select("*")
-      .is("week_start", null)
-
-    if (!data || data.length === 0) return
-
-    for (const entry of data) {
-      const correctWeekStart = getWeekStart(entry.date)
-
-      await supabase
-        .from("work_entries")
-        .update({
-          week_start: correctWeekStart
-        })
-        .eq("id", entry.id)
-    }
-
-    fetchEntries()
-  }
-
-  //-----------------------------------
-  // FETCH WORKERS
-  //-----------------------------------
   async function fetchWorkers() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("workers")
       .select("*")
       .eq("status", "active")
       .order("name")
 
-    if (data) {
-      setWorkers(data)
+    if (error) {
+      alert(error.message)
+      return
     }
+
+    setWorkers(data || [])
   }
 
-  //-----------------------------------
-  // FETCH ENTRIES
-  //-----------------------------------
   async function fetchEntries() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("work_entries")
       .select(`
         *,
-        workers(name)
+        workers(name, worker_type)
       `)
       .order("date", { ascending: false })
 
-    if (data) {
-      setEntries(data)
+    if (error) {
+      alert(error.message)
+      return
     }
+
+    setEntries(data || [])
   }
 
-  //-----------------------------------
-  // SAVE NEW ENTRY
-  //-----------------------------------
   async function handleSubmit(e) {
     e.preventDefault()
 
+    if (!workerId || !date || !bricks) {
+      alert("Please fill all required fields")
+      return
+    }
+
     const weekStart = getWeekStart(date)
 
-    const { error } = await supabase
-      .from("work_entries")
-      .insert([
-        {
-          worker_id: workerId,
-          date,
-          bricks: Number(bricks),
-          week_start: weekStart
-        }
-      ])
+    const { error } = await supabase.from("work_entries").insert([
+      {
+        worker_id: workerId,
+        date,
+        bricks: Number(bricks),
+        week_start: weekStart,
+      },
+    ])
 
     if (error) {
       alert(error.message)
@@ -130,14 +94,11 @@ export default function WorkEntryPage() {
     setWorkerId("")
     setDate("")
     setBricks("")
-
     fetchEntries()
   }
 
   return (
     <div className="min-h-screen bg-[#061226] text-white p-8">
-
-      {/* HEADER */}
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold text-orange-500">
           Daily Work Entry
@@ -150,16 +111,13 @@ export default function WorkEntryPage() {
         </Link>
       </div>
 
-      {/* ENTRY FORM */}
+      {/* FORM */}
       <div className="bg-[#0f223a] p-6 rounded-xl mb-8">
         <h2 className="text-2xl font-semibold mb-6">
           Record Daily Production
         </h2>
 
-        <form
-          onSubmit={handleSubmit}
-          className="grid grid-cols-3 gap-4"
-        >
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <select
             value={workerId}
             onChange={(e) => setWorkerId(e.target.value)}
@@ -167,13 +125,9 @@ export default function WorkEntryPage() {
             required
           >
             <option value="">Select Worker</option>
-
             {workers.map((worker) => (
-              <option
-                key={worker.id}
-                value={worker.id}
-              >
-                {worker.name}
+              <option key={worker.id} value={worker.id}>
+                {worker.worker_type?.toUpperCase()} - {worker.name}
               </option>
             ))}
           </select>
@@ -195,7 +149,7 @@ export default function WorkEntryPage() {
             required
           />
 
-          <button className="col-span-3 bg-orange-500 p-3 rounded font-semibold hover:opacity-90">
+          <button className="md:col-span-3 bg-orange-500 p-3 rounded font-semibold hover:opacity-90 transition">
             Save Entry
           </button>
         </form>
@@ -207,32 +161,35 @@ export default function WorkEntryPage() {
           Production History
         </h2>
 
-        <table className="w-full">
-          <thead>
-            <tr className="text-left text-orange-500 border-b border-gray-700">
-              <th className="pb-3">Worker</th>
-              <th className="pb-3">Date</th>
-              <th className="pb-3">Bricks</th>
-              <th className="pb-3">Week Start</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {entries.map((entry) => (
-              <tr
-                key={entry.id}
-                className="border-b border-gray-800"
-              >
-                <td className="py-3">
-                  {entry.workers?.name}
-                </td>
-                <td>{entry.date}</td>
-                <td>{entry.bricks}</td>
-                <td>{entry.week_start}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="text-orange-500 border-b border-gray-700">
+                <th className="pb-3">Worker Type</th>
+                <th className="pb-3">Worker</th>
+                <th className="pb-3">Date</th>
+                <th className="pb-3">Bricks</th>
+                <th className="pb-3">Week Start</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {entries.map((entry) => (
+                <tr key={entry.id} className="border-b border-gray-800">
+                  <td className="py-3 capitalize">
+                    {entry.workers?.worker_type || "-"}
+                  </td>
+                  <td className="py-3">
+                    {entry.workers?.name || "-"}
+                  </td>
+                  <td>{entry.date}</td>
+                  <td>{entry.bricks}</td>
+                  <td>{entry.week_start}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
