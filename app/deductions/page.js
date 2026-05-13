@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(
@@ -14,7 +15,7 @@ export default function DeductionsPage() {
 
   const [workerId, setWorkerId] = useState("")
   const [amount, setAmount] = useState("")
-  const [deductionType, setDeductionType] = useState("Electricity")
+  const [deductionType, setDeductionType] = useState("Fine / Low Production")
   const [notes, setNotes] = useState("")
   const [date, setDate] = useState("")
 
@@ -23,9 +24,7 @@ export default function DeductionsPage() {
     const today = new Date()
     const day = today.getDay()
 
-    // Thursday = 4
     let diff
-
     if (day >= 4) {
       diff = day - 4
     } else {
@@ -40,23 +39,33 @@ export default function DeductionsPage() {
 
   // Fetch workers
   const fetchWorkers = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("workers")
       .select("*")
       .order("name")
+
+    if (error) {
+      alert(error.message)
+      return
+    }
 
     if (data) setWorkers(data)
   }
 
   // Fetch deductions
   const fetchDeductions = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("deductions")
       .select(`
         *,
-        workers(name)
+        workers(name, worker_type)
       `)
       .order("created_at", { ascending: false })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
 
     if (data) setDeductions(data)
   }
@@ -84,8 +93,8 @@ export default function DeductionsPage() {
           deduction_type: deductionType,
           notes,
           date,
-          week_start: getWeekStart()
-        }
+          week_start: getWeekStart(),
+        },
       ])
 
     if (error) {
@@ -97,7 +106,7 @@ export default function DeductionsPage() {
 
     setWorkerId("")
     setAmount("")
-    setDeductionType("Electricity")
+    setDeductionType("Fine / Low Production")
     setNotes("")
     setDate("")
 
@@ -106,11 +115,18 @@ export default function DeductionsPage() {
 
   return (
     <div className="min-h-screen bg-[#061226] text-white p-8">
-      
       {/* HEADER */}
-      <h1 className="text-4xl font-bold text-orange-500 mb-8">
-        Deductions Management
-      </h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold text-orange-500">
+          Deductions Management
+        </h1>
+
+        <Link href="/admin">
+          <button className="bg-[#0f223a] px-4 py-2 rounded-lg">
+            Back to Dashboard
+          </button>
+        </Link>
+      </div>
 
       {/* FORM */}
       <div className="bg-[#0f223a] p-6 rounded-xl mb-10 max-w-2xl">
@@ -119,7 +135,6 @@ export default function DeductionsPage() {
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-
           {/* Worker */}
           <select
             value={workerId}
@@ -129,7 +144,7 @@ export default function DeductionsPage() {
             <option value="">Select Worker</option>
             {workers.map((worker) => (
               <option key={worker.id} value={worker.id}>
-                {worker.name}
+                {worker.worker_type?.toUpperCase()} - {worker.name}
               </option>
             ))}
           </select>
@@ -149,12 +164,12 @@ export default function DeductionsPage() {
             onChange={(e) => setDeductionType(e.target.value)}
             className="w-full p-3 rounded-lg bg-[#081a2f] border border-gray-700"
           >
-            <option>Electricity</option>
-            <option>Food</option>
-            <option>Loan</option>
-            <option>Transport</option>
-            <option>Damage</option>
-            <option>Other</option>
+            <option value="Fine / Low Production">
+              Fine / Low Production
+            </option>
+            <option value="Other">
+              Other
+            </option>
           </select>
 
           {/* Notes */}
@@ -180,7 +195,6 @@ export default function DeductionsPage() {
           >
             Save Deduction
           </button>
-
         </form>
       </div>
 
@@ -192,9 +206,9 @@ export default function DeductionsPage() {
 
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-
             <thead>
               <tr className="border-b border-gray-700 text-orange-400">
+                <th className="py-3">Worker Type</th>
                 <th className="py-3">Worker</th>
                 <th className="py-3">Type</th>
                 <th className="py-3">Amount</th>
@@ -209,6 +223,9 @@ export default function DeductionsPage() {
                   key={item.id}
                   className="border-b border-gray-800"
                 >
+                  <td className="py-3 capitalize">
+                    {item.workers?.worker_type || "-"}
+                  </td>
                   <td className="py-3">
                     {item.workers?.name}
                   </td>
@@ -227,11 +244,9 @@ export default function DeductionsPage() {
                 </tr>
               ))}
             </tbody>
-
           </table>
         </div>
       </div>
-
     </div>
   )
 }
