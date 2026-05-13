@@ -8,16 +8,20 @@ function calculatePeshgiBalance(transactions = []) {
   return transactions.reduce((sum, t) => {
     const amount = Number(t.amount) || 0
 
+    // INCREASES PESHGI
     if (
       t.transaction_type === "peshgi" ||
       t.transaction_type === "advance" ||
-      t.transaction_type === "electricity" ||
-      t.transaction_type === "deduction"
+      t.transaction_type === "electricity"
     ) {
       return sum + amount
     }
 
-    if (t.transaction_type === "return") {
+    // REDUCES PESHGI
+    if (
+      t.transaction_type === "deduction" ||
+      t.transaction_type === "return"
+    ) {
       return sum - amount
     }
 
