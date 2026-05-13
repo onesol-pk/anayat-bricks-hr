@@ -104,12 +104,22 @@ export default async function AdminDashboard() {
           </div>
         </Link>
 
-        {/* Work Entry */}
+        {/* Daily Work Entry */}
         <Link href="/work-entry">
           <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
             <h2 className="text-xl font-semibold">Daily Work Entry</h2>
             <p className="text-gray-400 mt-2">
               Record daily brick production
+            </p>
+          </div>
+        </Link>
+
+        {/* Advances */}
+        <Link href="/advances">
+          <div className="bg-[#0f223a] p-6 rounded-xl hover:bg-[#16314f] transition cursor-pointer">
+            <h2 className="text-xl font-semibold">Advances</h2>
+            <p className="text-gray-400 mt-2">
+              Manage worker advances
             </p>
           </div>
         </Link>
