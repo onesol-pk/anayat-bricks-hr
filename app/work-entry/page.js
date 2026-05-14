@@ -5,8 +5,8 @@ import Link from "next/link"
 import { supabase } from "../../lib/supabase"
 
 const BRICK_TYPES = {
-  patheer: ["gutka", "tile", "special", "wala"],
-  bharai: ["gutka", "tile", "special", "wala"],
+  patheer: ["gutka", "tile", "special"],
+  bharai: ["gutka", "tile", "special"],
   nakasi: ["awal", "dome", "tirak", "tile", "special"],
   loading: ["awal", "dome", "tirak", "tile", "special"],
 }
