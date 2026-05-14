@@ -28,14 +28,17 @@ export default function AdditionsPage() {
     const d = new Date(selectedDate)
     const day = d.getDay()
 
+    // Friday = week start
     let diff
-    if (day >= 4) {
-      diff = day - 4
+
+    if (day >= 5) {
+      diff = day - 5
     } else {
-      diff = day + 3
+      diff = day + 2
     }
 
     d.setDate(d.getDate() - diff)
+
     return d.toISOString().split("T")[0]
   }
 
@@ -79,6 +82,8 @@ export default function AdditionsPage() {
       return
     }
 
+    const weekStart = getWeekStart(date)
+
     const { error } = await supabase
       .from("worker_financial_transactions")
       .insert([
@@ -87,6 +92,7 @@ export default function AdditionsPage() {
           transaction_type: additionType,
           amount: Number(amount),
           transaction_date: date,
+          week_start: weekStart,
           notes: notes || additionType,
         },
       ])
@@ -103,6 +109,7 @@ export default function AdditionsPage() {
     setAdditionType("electricity")
     setNotes("")
     setDate("")
+
     fetchAdditions()
   }
 
@@ -132,6 +139,7 @@ export default function AdditionsPage() {
             className="w-full p-3 rounded-lg bg-[#081a2f] border border-gray-700"
           >
             <option value="">Select Worker</option>
+
             {workers.map((worker) => (
               <option key={worker.id} value={worker.id}>
                 {worker.worker_type?.toUpperCase()} - {worker.name}
@@ -194,6 +202,7 @@ export default function AdditionsPage() {
                 <th className="py-3">Type</th>
                 <th className="py-3">Amount</th>
                 <th className="py-3">Date</th>
+                <th className="py-3">Week Start</th>
                 <th className="py-3">Notes</th>
               </tr>
             </thead>
@@ -204,18 +213,27 @@ export default function AdditionsPage() {
                   <td className="py-3 capitalize">
                     {item.workers?.worker_type || "-"}
                   </td>
+
                   <td className="py-3">
                     {item.workers?.name}
                   </td>
+
                   <td className="py-3 capitalize">
                     {item.transaction_type}
                   </td>
+
                   <td className="py-3">
                     Rs {item.amount}
                   </td>
+
                   <td className="py-3">
                     {item.transaction_date}
                   </td>
+
+                  <td className="py-3">
+                    {item.week_start || "-"}
+                  </td>
+
                   <td className="py-3">
                     {item.notes || "-"}
                   </td>
