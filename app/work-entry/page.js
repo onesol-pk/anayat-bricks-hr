@@ -21,12 +21,12 @@ export default function WorkEntryPage() {
     const d = new Date(selectedDate)
     const day = d.getDay()
 
-    // Thursday = week start
+    // Friday = week start
     let diff
-    if (day >= 4) {
-      diff = day - 4
+    if (day >= 5) {
+      diff = day - 5
     } else {
-      diff = day + 3
+      diff = day + 2
     }
 
     d.setDate(d.getDate() - diff)
@@ -117,7 +117,10 @@ export default function WorkEntryPage() {
           Record Daily Production
         </h2>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-1 md:grid-cols-3 gap-4"
+        >
           <select
             value={workerId}
             onChange={(e) => setWorkerId(e.target.value)}
