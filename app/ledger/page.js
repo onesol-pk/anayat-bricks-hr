@@ -58,17 +58,6 @@ function calculateCurrentPeshgi(transactions = []) {
   }, 0)
 }
 
-const typeOrder = {
-  Work: 1,
-  Advance: 2,
-  Deduction: 3,
-  Peshgi: 4,
-  Electricity: 5,
-  Loan: 6,
-  Damage: 7,
-  Return: 8,
-}
-
 export default function LedgerPage() {
   const currentWeek = getCurrentWeekRange()
 
@@ -85,6 +74,7 @@ export default function LedgerPage() {
     totalAdvances: 0,
     totalDeductions: 0,
     currentPeshgi: 0,
+    carryForward: 0,
     finalWeeklySalary: 0,
   })
 
@@ -142,6 +132,7 @@ export default function LedgerPage() {
         financialHistoryRes,
         financialAllRes,
         settlementRes,
+        previousSettlementRes,
       ] = await Promise.all([
         supabase
           .from("work_entries")
@@ -198,6 +189,15 @@ export default function LedgerPage() {
           .eq("worker_id", selectedWorker)
           .eq("week_start", dateFrom)
           .maybeSingle(),
+
+        supabase
+          .from("weekly_settlements")
+          .select("final_balance, week_start")
+          .eq("worker_id", selectedWorker)
+          .lt("week_start", dateFrom)
+          .order("week_start", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ])
 
       if (workRes.error) throw workRes.error
@@ -207,6 +207,9 @@ export default function LedgerPage() {
       if (financialAllRes.error) throw financialAllRes.error
       if (settlementRes.error && settlementRes.error.code !== "PGRST116") {
         throw settlementRes.error
+      }
+      if (previousSettlementRes.error && previousSettlementRes.error.code !== "PGRST116") {
+        throw previousSettlementRes.error
       }
 
       const workData = workRes.data || []
@@ -236,8 +239,16 @@ export default function LedgerPage() {
 
       const currentPeshgi = calculateCurrentPeshgi(financialAllData)
 
+      const carryForward =
+        Number(previousSettlementRes?.final_balance) < 0
+          ? Number(previousSettlementRes.final_balance)
+          : 0
+
       const finalWeeklySalary =
-        totalEarnings - totalAdvances - totalDeductions
+        carryForward +
+        totalEarnings -
+        totalAdvances -
+        totalDeductions
 
       const combinedTransactions = []
 
@@ -297,7 +308,7 @@ export default function LedgerPage() {
       combinedTransactions.sort((a, b) => {
         const dateDiff = new Date(a.date) - new Date(b.date)
         if (dateDiff !== 0) return dateDiff
-        return (typeOrder[a.type] || 99) - (typeOrder[b.type] || 99)
+        return 0
       })
 
       setWorkerInfo(workerData)
@@ -308,6 +319,7 @@ export default function LedgerPage() {
         totalAdvances,
         totalDeductions,
         currentPeshgi,
+        carryForward,
         finalWeeklySalary,
       })
       setSettlementStatus(settlementRes.data || null)
@@ -328,7 +340,7 @@ export default function LedgerPage() {
       earnings: summary.totalEarnings,
       advances: summary.totalAdvances,
       deductions: summary.totalDeductions,
-      previous_balance: summary.currentPeshgi,
+      previous_balance: summary.carryForward,
       final_balance: summary.finalWeeklySalary,
       payment_status: "paid",
       paid_at: new Date().toISOString(),
@@ -498,6 +510,17 @@ export default function LedgerPage() {
         </div>
 
         <div className="bg-[#0f223a] p-6 rounded-xl">
+          <p className="text-gray-400">Carry Forward</p>
+          <h2
+            className={`text-3xl font-bold mt-2 ${
+              Number(summary.carryForward) < 0 ? "text-red-400" : "text-orange-500"
+            }`}
+          >
+            Rs {formatMoney(summary.carryForward)}
+          </h2>
+        </div>
+
+        <div className="bg-[#0f223a] p-6 rounded-xl xl:col-span-3">
           <p className="text-gray-400">Final Weekly Salary</p>
           <h2 className="text-3xl font-bold text-orange-500 mt-2">
             Rs {formatMoney(summary.finalWeeklySalary)}
