@@ -19,11 +19,11 @@ function getCurrentWeekRange() {
   const now = new Date()
   const day = now.getDay()
 
-  // Thursday to Wednesday cycle
-  const diffToThursday = day >= 4 ? day - 4 : day + 3
+  // Friday to Thursday cycle
+  const diffToFriday = day >= 5 ? day - 5 : day + 2
 
   const start = new Date(now)
-  start.setDate(now.getDate() - diffToThursday)
+  start.setDate(now.getDate() - diffToFriday)
   start.setHours(0, 0, 0, 0)
 
   const end = new Date(start)
@@ -305,11 +305,7 @@ export default function LedgerPage() {
         })
       })
 
-      combinedTransactions.sort((a, b) => {
-        const dateDiff = new Date(a.date) - new Date(b.date)
-        if (dateDiff !== 0) return dateDiff
-        return 0
-      })
+      combinedTransactions.sort((a, b) => new Date(a.date) - new Date(b.date))
 
       setWorkerInfo(workerData)
       setTransactions(combinedTransactions)
@@ -468,7 +464,7 @@ export default function LedgerPage() {
           </button>
 
           <span className="text-gray-400 self-center">
-            Thursday to Wednesday cycle
+            Friday to Thursday cycle
           </span>
         </div>
       </div>
