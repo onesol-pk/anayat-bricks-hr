@@ -19,7 +19,7 @@ function getCurrentWeekRange() {
   const now = new Date()
   const day = now.getDay()
 
-  // Thursday = start of week
+  // Thursday to Wednesday cycle
   const diffToThursday = day >= 4 ? day - 4 : day + 3
 
   const start = new Date(now)
@@ -48,6 +48,7 @@ function calculateCurrentPeshgi(transactions = []) {
       case "damage":
         return sum + amount
 
+      case "deduction":
       case "return":
         return sum - amount
 
@@ -132,9 +133,7 @@ export default function LedgerPage() {
         .eq("id", selectedWorker)
         .single()
 
-      if (workerError) {
-        throw workerError
-      }
+      if (workerError) throw workerError
 
       const [
         workRes,
@@ -189,6 +188,7 @@ export default function LedgerPage() {
             "electricity",
             "loan",
             "damage",
+            "deduction",
             "return",
           ]),
 
