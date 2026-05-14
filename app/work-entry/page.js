@@ -1,8 +1,21 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { supabase } from "../../lib/supabase"
+
+const BRICK_TYPES = {
+  patheer: ["gutka", "tile", "special", "wala"],
+  bharai: ["gutka", "tile", "special", "wala"],
+  nakasi: ["awal", "dome", "tirak", "tile", "special"],
+  loading: ["awal", "dome", "tirak", "tile", "special"],
+}
+
+function formatMoney(value) {
+  return new Intl.NumberFormat("en-PK", {
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0)
+}
 
 export default function WorkEntryPage() {
   const [workers, setWorkers] = useState([])
@@ -10,6 +23,7 @@ export default function WorkEntryPage() {
 
   const [workerId, setWorkerId] = useState("")
   const [date, setDate] = useState("")
+  const [brickType, setBrickType] = useState("")
   const [bricks, setBricks] = useState("")
   const [ratePer1000, setRatePer1000] = useState("")
 
@@ -24,6 +38,7 @@ export default function WorkEntryPage() {
 
     // Friday = week start
     let diff
+
     if (day >= 5) {
       diff = day - 5
     } else {
@@ -31,6 +46,7 @@ export default function WorkEntryPage() {
     }
 
     d.setDate(d.getDate() - diff)
+
     return d.toISOString().split("T")[0]
   }
 
@@ -66,25 +82,53 @@ export default function WorkEntryPage() {
     setEntries(data || [])
   }
 
+  const selectedWorker = useMemo(() => {
+    return workers.find((w) => w.id === workerId)
+  }, [workerId, workers])
+
+  const workerType = selectedWorker?.worker_type || ""
+
+  const availableBrickTypes =
+    BRICK_TYPES[workerType?.toLowerCase()] || []
+
+  const totalAmount = useMemo(() => {
+    const total =
+      ((Number(bricks) || 0) / 1000) *
+      (Number(ratePer1000) || 0)
+
+    return total
+  }, [bricks, ratePer1000])
+
   async function handleSubmit(e) {
     e.preventDefault()
 
-    if (!workerId || !date || !bricks || !ratePer1000) {
+    if (
+      !workerId ||
+      !date ||
+      !brickType ||
+      !bricks ||
+      !ratePer1000
+    ) {
       alert("Please fill all required fields")
       return
     }
 
     const weekStart = getWeekStart(date)
 
-    const { error } = await supabase.from("work_entries").insert([
-      {
-        worker_id: workerId,
-        date,
-        bricks: Number(bricks),
-        rate_per_1000: Number(ratePer1000),
-        week_start: weekStart,
-      },
-    ])
+    const { error } = await supabase
+      .from("work_entries")
+      .insert([
+        {
+          worker_id: workerId,
+          worker_type: workerType,
+          brick_type: brickType,
+          date,
+          bricks: Number(bricks),
+          rate_per_1000: Number(ratePer1000),
+          total_amount: Number(totalAmount),
+          week_start: weekStart,
+        },
+      ])
 
     if (error) {
       alert(error.message)
@@ -95,8 +139,10 @@ export default function WorkEntryPage() {
 
     setWorkerId("")
     setDate("")
+    setBrickType("")
     setBricks("")
     setRatePer1000("")
+
     fetchEntries()
   }
 
@@ -122,15 +168,20 @@ export default function WorkEntryPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
         >
+          {/* WORKER */}
           <select
             value={workerId}
-            onChange={(e) => setWorkerId(e.target.value)}
+            onChange={(e) => {
+              setWorkerId(e.target.value)
+              setBrickType("")
+            }}
             className="p-3 rounded bg-[#081a2f]"
             required
           >
             <option value="">Select Worker</option>
+
             {workers.map((worker) => (
               <option key={worker.id} value={worker.id}>
                 {worker.worker_type?.toUpperCase()} - {worker.name}
@@ -138,6 +189,7 @@ export default function WorkEntryPage() {
             ))}
           </select>
 
+          {/* DATE */}
           <input
             type="date"
             value={date}
@@ -146,25 +198,56 @@ export default function WorkEntryPage() {
             required
           />
 
+          {/* BRICK TYPE */}
+          <select
+            value={brickType}
+            onChange={(e) => setBrickType(e.target.value)}
+            className="p-3 rounded bg-[#081a2f]"
+            required
+            disabled={!workerType}
+          >
+            <option value="">Select Brick Type</option>
+
+            {availableBrickTypes.map((type) => (
+              <option key={type} value={type}>
+                {type.toUpperCase()}
+              </option>
+            ))}
+          </select>
+
+          {/* BRICKS */}
           <input
             type="number"
-            placeholder="Bricks Produced"
+            placeholder="Bricks"
             value={bricks}
             onChange={(e) => setBricks(e.target.value)}
             className="p-3 rounded bg-[#081a2f]"
             required
           />
 
+          {/* RATE */}
           <input
             type="number"
-            placeholder="Rate / 1000"
+            placeholder="Rate per 1000"
             value={ratePer1000}
             onChange={(e) => setRatePer1000(e.target.value)}
             className="p-3 rounded bg-[#081a2f]"
             required
           />
 
-          <button className="md:col-span-2 lg:col-span-4 bg-orange-500 p-3 rounded font-semibold hover:opacity-90 transition">
+          {/* TOTAL */}
+          <div className="bg-[#081a2f] rounded p-3 flex flex-col justify-center">
+            <span className="text-gray-400 text-sm">
+              Total Amount
+            </span>
+
+            <span className="text-orange-500 text-2xl font-bold">
+              Rs {formatMoney(totalAmount)}
+            </span>
+          </div>
+
+          {/* SAVE */}
+          <button className="lg:col-span-3 bg-orange-500 p-3 rounded font-semibold hover:opacity-90 transition">
             Save Entry
           </button>
         </form>
@@ -182,26 +265,43 @@ export default function WorkEntryPage() {
               <tr className="text-orange-500 border-b border-gray-700">
                 <th className="pb-3">Worker Type</th>
                 <th className="pb-3">Worker</th>
+                <th className="pb-3">Brick Type</th>
                 <th className="pb-3">Date</th>
                 <th className="pb-3">Bricks</th>
-                <th className="pb-3">Rate / 1000</th>
-                <th className="pb-3">Week Start</th>
+                <th className="pb-3">Rate</th>
+                <th className="pb-3">Total</th>
               </tr>
             </thead>
 
             <tbody>
               {entries.map((entry) => (
-                <tr key={entry.id} className="border-b border-gray-800">
+                <tr
+                  key={entry.id}
+                  className="border-b border-gray-800"
+                >
                   <td className="py-3 capitalize">
-                    {entry.workers?.worker_type || "-"}
+                    {entry.worker_type || "-"}
                   </td>
+
                   <td className="py-3">
                     {entry.workers?.name || "-"}
                   </td>
+
+                  <td className="capitalize">
+                    {entry.brick_type || "-"}
+                  </td>
+
                   <td>{entry.date}</td>
-                  <td>{entry.bricks}</td>
-                  <td>{entry.rate_per_1000 || "-"}</td>
-                  <td>{entry.week_start}</td>
+
+                  <td>{formatMoney(entry.bricks)}</td>
+
+                  <td>
+                    Rs {formatMoney(entry.rate_per_1000)}
+                  </td>
+
+                  <td className="text-orange-500 font-semibold">
+                    Rs {formatMoney(entry.total_amount)}
+                  </td>
                 </tr>
               ))}
             </tbody>
