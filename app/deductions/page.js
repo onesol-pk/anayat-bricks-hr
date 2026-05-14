@@ -19,26 +19,26 @@ export default function DeductionsPage() {
   const [notes, setNotes] = useState("")
   const [date, setDate] = useState("")
 
-  // Get current week start (Thursday)
-  const getWeekStart = () => {
-    const today = new Date()
-    const day = today.getDay()
+  // Friday = week start
+  function getWeekStart(selectedDate) {
+    const d = new Date(selectedDate)
+    const day = d.getDay()
 
     let diff
-    if (day >= 4) {
-      diff = day - 4
+
+    if (day >= 5) {
+      diff = day - 5
     } else {
-      diff = day + 3
+      diff = day + 2
     }
 
-    const thursday = new Date(today)
-    thursday.setDate(today.getDate() - diff)
+    d.setDate(d.getDate() - diff)
 
-    return thursday.toISOString().split("T")[0]
+    return d.toISOString().split("T")[0]
   }
 
   // Fetch workers
-  const fetchWorkers = async () => {
+  async function fetchWorkers() {
     const { data, error } = await supabase
       .from("workers")
       .select("*")
@@ -49,11 +49,11 @@ export default function DeductionsPage() {
       return
     }
 
-    if (data) setWorkers(data)
+    setWorkers(data || [])
   }
 
   // Fetch deductions
-  const fetchDeductions = async () => {
+  async function fetchDeductions() {
     const { data, error } = await supabase
       .from("deductions")
       .select(`
@@ -67,7 +67,7 @@ export default function DeductionsPage() {
       return
     }
 
-    if (data) setDeductions(data)
+    setDeductions(data || [])
   }
 
   useEffect(() => {
@@ -76,13 +76,15 @@ export default function DeductionsPage() {
   }, [])
 
   // Save deduction
-  const handleSubmit = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault()
 
     if (!workerId || !amount || !date) {
       alert("Please fill all required fields")
       return
     }
+
+    const weekStart = getWeekStart(date)
 
     const { error } = await supabase
       .from("deductions")
@@ -93,28 +95,30 @@ export default function DeductionsPage() {
           deduction_type: deductionType,
           notes,
           date,
-          week_start: getWeekStart(),
+          week_start: weekStart,
         },
       ])
-    const { error: txError } = await supabase
-  .from("worker_financial_transactions")
-  .insert([
-    {
-      worker_id: workerId,
-      transaction_type: "deduction",
-      amount: Number(amount),
-      transaction_date: date,
-      notes: notes || deductionType,
-    }
-  ])
-
-if (txError) {
-  alert(txError.message)
-  return
-}
 
     if (error) {
       alert(error.message)
+      return
+    }
+
+    const { error: txError } = await supabase
+      .from("worker_financial_transactions")
+      .insert([
+        {
+          worker_id: workerId,
+          transaction_type: "deduction",
+          amount: Number(amount),
+          transaction_date: date,
+          week_start: weekStart,
+          notes: notes || deductionType,
+        },
+      ])
+
+    if (txError) {
+      alert(txError.message)
       return
     }
 
@@ -158,6 +162,7 @@ if (txError) {
             className="w-full p-3 rounded-lg bg-[#081a2f] border border-gray-700"
           >
             <option value="">Select Worker</option>
+
             {workers.map((worker) => (
               <option key={worker.id} value={worker.id}>
                 {worker.worker_type?.toUpperCase()} - {worker.name}
@@ -183,6 +188,7 @@ if (txError) {
             <option value="Fine / Low Production">
               Fine / Low Production
             </option>
+
             <option value="Other">
               Other
             </option>
@@ -229,6 +235,7 @@ if (txError) {
                 <th className="py-3">Type</th>
                 <th className="py-3">Amount</th>
                 <th className="py-3">Date</th>
+                <th className="py-3">Week Start</th>
                 <th className="py-3">Notes</th>
               </tr>
             </thead>
@@ -242,18 +249,27 @@ if (txError) {
                   <td className="py-3 capitalize">
                     {item.workers?.worker_type || "-"}
                   </td>
+
                   <td className="py-3">
                     {item.workers?.name}
                   </td>
+
                   <td className="py-3">
                     {item.deduction_type}
                   </td>
+
                   <td className="py-3">
                     Rs {item.amount}
                   </td>
+
                   <td className="py-3">
                     {item.date}
                   </td>
+
+                  <td className="py-3">
+                    {item.week_start}
+                  </td>
+
                   <td className="py-3">
                     {item.notes || "-"}
                   </td>
