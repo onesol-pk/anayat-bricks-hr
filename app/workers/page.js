@@ -10,14 +10,14 @@ function calculatePeshgiBalance(transactions = []) {
 
     // INCREASES PESHGI
     if (
-  t.transaction_type === "peshgi" ||
-  t.transaction_type === "advance" ||
-  t.transaction_type === "electricity" ||
-  t.transaction_type === "loan" ||
-  t.transaction_type === "damage"
-) {
-  return sum + amount
-}
+      t.transaction_type === "peshgi" ||
+      t.transaction_type === "advance" ||
+      t.transaction_type === "electricity" ||
+      t.transaction_type === "loan" ||
+      t.transaction_type === "damage"
+    ) {
+      return sum + amount
+    }
 
     // REDUCES PESHGI
     if (
@@ -39,16 +39,11 @@ export default function WorkersPage() {
   const [phone, setPhone] = useState("")
   const [cnic, setCnic] = useState("")
   const [workerType, setWorkerType] = useState("patheer")
-  const [rate, setRate] = useState("")
   const [openingPeshgi, setOpeningPeshgi] = useState("")
   const [joiningDate, setJoiningDate] = useState("")
   const [notes, setNotes] = useState("")
 
   const [editingWorker, setEditingWorker] = useState(null)
-
-  useEffect(() => {
-    fetchWorkers()
-  }, [])
 
   useEffect(() => {
     fetchWorkers()
@@ -95,7 +90,7 @@ export default function WorkersPage() {
   }
 
   async function saveWorker() {
-    if (!name || !phone || !rate || !joiningDate) {
+    if (!name || !phone || !joiningDate) {
       alert("Please fill all required fields")
       return
     }
@@ -105,7 +100,6 @@ export default function WorkersPage() {
       phone,
       cnic,
       worker_type: workerType,
-      default_rate: Number(rate) || 0,
       joining_date: joiningDate,
       notes,
     }
@@ -175,7 +169,6 @@ export default function WorkersPage() {
     setPhone("")
     setCnic("")
     setWorkerType("patheer")
-    setRate("")
     setOpeningPeshgi("")
     setJoiningDate("")
     setNotes("")
@@ -188,7 +181,6 @@ export default function WorkersPage() {
     setPhone(worker.phone || "")
     setCnic(worker.cnic || "")
     setWorkerType(worker.worker_type || "patheer")
-    setRate(worker.default_rate || "")
     setJoiningDate(worker.joining_date || "")
     setNotes(worker.notes || "")
   }
@@ -236,18 +228,16 @@ export default function WorkersPage() {
   return (
     <div className="min-h-screen bg-[#061226] text-white p-8">
       <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold text-orange-500">
+          Workers Management
+        </h1>
 
-  <h1 className="text-4xl font-bold text-orange-500">
-    Workers Management
-  </h1>
-
-  <Link href="/admin">
-    <button className="bg-[#0f223a] px-4 py-2 rounded-lg">
-      Back to Dashboard
-    </button>
-  </Link>
-
-</div>
+        <Link href="/admin">
+          <button className="bg-[#0f223a] px-4 py-2 rounded-lg">
+            Back to Dashboard
+          </button>
+        </Link>
+      </div>
 
       <div className="bg-[#0f223a] p-6 rounded-xl mb-8">
         <h2 className="text-2xl mb-6">
@@ -289,14 +279,6 @@ export default function WorkersPage() {
             <option value="nakasi">Nakasi</option>
             <option value="loading">Loading</option>
           </select>
-
-          <input
-            type="number"
-            placeholder="Default Rate"
-            value={rate}
-            onChange={(e) => setRate(e.target.value)}
-            className="p-3 rounded bg-[#081a2f]"
-          />
 
           <input
             type="number"
@@ -370,7 +352,7 @@ export default function WorkersPage() {
               <th className="pb-3">Name</th>
               <th className="pb-3">Type</th>
               <th className="pb-3">Phone</th>
-              <th className="pb-3">Rate</th>
+              <th className="pb-3">Join Date</th>
               <th className="pb-3">Current Peshgi</th>
               <th className="pb-3">Status</th>
               <th className="pb-3">Actions</th>
@@ -383,7 +365,7 @@ export default function WorkersPage() {
                 <td className="py-4">{worker.name}</td>
                 <td className="capitalize">{worker.worker_type}</td>
                 <td>{worker.phone}</td>
-                <td>Rs {worker.default_rate}</td>
+                <td>{worker.joining_date || "-"}</td>
                 <td className="text-orange-500 font-semibold">
                   Rs {worker.current_peshgi || 0}
                 </td>
