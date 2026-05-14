@@ -358,36 +358,6 @@ export default function PrintLedgerPage() {
           </div>
         </div>
 
-        <div className="mt-8">
-          <h3 className="text-xl font-bold mb-4">Transaction History</h3>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-gray-300">
-                  <th className="py-2">Date</th>
-                  <th className="py-2">Type</th>
-                  <th className="py-2">Details</th>
-                  <th className="py-2">Amount</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {transactions.map((item, index) => (
-                  <tr key={index} className="border-b border-gray-200">
-                    <td className="py-3">{item.date}</td>
-                    <td>{item.type}</td>
-                    <td>{item.details}</td>
-                    <td className={Number(item.amount) >= 0 ? "text-green-700" : "text-red-600"}>
-                      Rs {formatMoney(item.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
         <div className="text-center mt-8 flex justify-center gap-3 print:hidden">
           <button
             onClick={handlePrint}
