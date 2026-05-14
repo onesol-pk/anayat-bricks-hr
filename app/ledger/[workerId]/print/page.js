@@ -57,17 +57,6 @@ function calculateCurrentPeshgi(transactions = []) {
   }, 0)
 }
 
-const typeOrder = {
-  Work: 1,
-  Advance: 2,
-  Deduction: 3,
-  Peshgi: 4,
-  Electricity: 5,
-  Loan: 6,
-  Damage: 7,
-  Return: 8,
-}
-
 export default function PrintLedgerPage() {
   const params = useParams()
   const searchParams = useSearchParams()
@@ -79,13 +68,13 @@ export default function PrintLedgerPage() {
   const dateTo = searchParams.get("to") || fallbackWeek.end
 
   const [workerInfo, setWorkerInfo] = useState(null)
-  const [transactions, setTransactions] = useState([])
   const [summary, setSummary] = useState({
     bricksMade: 0,
     totalEarnings: 0,
     totalAdvances: 0,
     totalDeductions: 0,
     currentPeshgi: 0,
+    carryForward: 0,
     finalWeeklySalary: 0,
   })
 
@@ -118,6 +107,7 @@ export default function PrintLedgerPage() {
         deductionsRes,
         financialHistoryRes,
         financialAllRes,
+        previousSettlementRes,
       ] = await Promise.all([
         supabase
           .from("work_entries")
@@ -167,6 +157,15 @@ export default function PrintLedgerPage() {
             "deduction",
             "return",
           ]),
+
+        supabase
+          .from("weekly_settlements")
+          .select("final_balance, week_start")
+          .eq("worker_id", workerId)
+          .lt("week_start", dateFrom)
+          .order("week_start", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ])
 
       if (workRes.error) throw workRes.error
@@ -174,6 +173,9 @@ export default function PrintLedgerPage() {
       if (deductionsRes.error) throw deductionsRes.error
       if (financialHistoryRes.error) throw financialHistoryRes.error
       if (financialAllRes.error) throw financialAllRes.error
+      if (previousSettlementRes.error && previousSettlementRes.error.code !== "PGRST116") {
+        throw previousSettlementRes.error
+      }
 
       const workData = workRes.data || []
       const advancesData = advancesRes.data || []
@@ -202,78 +204,25 @@ export default function PrintLedgerPage() {
 
       const currentPeshgi = calculateCurrentPeshgi(financialAllData)
 
+      const carryForward =
+        Number(previousSettlementRes?.final_balance) < 0
+          ? Number(previousSettlementRes.final_balance)
+          : 0
+
       const finalWeeklySalary =
-        totalEarnings - totalAdvances - totalDeductions
-
-      const combinedTransactions = []
-
-      workData.forEach((item) => {
-        const bricks = Number(item.bricks) || 0
-        const earning = (bricks / 1000) * rate
-
-        combinedTransactions.push({
-          date: item.date,
-          type: "Work",
-          details: `${bricks} bricks`,
-          amount: earning,
-        })
-      })
-
-      advancesData.forEach((item) => {
-        const amount = Number(item.amount) || 0
-
-        combinedTransactions.push({
-          date: item.date,
-          type: "Advance",
-          details: item.notes || "Advance Payment",
-          amount: -amount,
-        })
-      })
-
-      deductionsData.forEach((item) => {
-        const amount = Number(item.amount) || 0
-
-        combinedTransactions.push({
-          date: item.date,
-          type: "Deduction",
-          details: item.deduction_type || "Deduction",
-          amount: -amount,
-        })
-      })
-
-      financialHistoryData.forEach((item) => {
-        const amount = Number(item.amount) || 0
-
-        const typeLabels = {
-          peshgi: "Peshgi",
-          electricity: "Electricity",
-          loan: "Loan",
-          damage: "Damage",
-          return: "Return",
-        }
-
-        combinedTransactions.push({
-          date: item.transaction_date,
-          type: typeLabels[item.transaction_type] || item.transaction_type,
-          details: item.notes || typeLabels[item.transaction_type] || "Entry",
-          amount: -amount,
-        })
-      })
-
-      combinedTransactions.sort((a, b) => {
-        const dateDiff = new Date(a.date) - new Date(b.date)
-        if (dateDiff !== 0) return dateDiff
-        return (typeOrder[a.type] || 99) - (typeOrder[b.type] || 99)
-      })
+        carryForward +
+        totalEarnings -
+        totalAdvances -
+        totalDeductions
 
       setWorkerInfo(workerData)
-      setTransactions(combinedTransactions)
       setSummary({
         bricksMade,
         totalEarnings,
         totalAdvances,
         totalDeductions,
         currentPeshgi,
+        carryForward,
         finalWeeklySalary,
       })
     } catch (error) {
@@ -328,6 +277,7 @@ export default function PrintLedgerPage() {
               <p>Total Advances: Rs {formatMoney(summary.totalAdvances)}</p>
               <p>Total Deductions: Rs {formatMoney(summary.totalDeductions)}</p>
               <p>Current Peshgi: Rs {formatMoney(summary.currentPeshgi)}</p>
+              <p>Carry Forward: Rs {formatMoney(summary.carryForward)}</p>
 
               <hr className="my-4" />
 
@@ -348,6 +298,7 @@ export default function PrintLedgerPage() {
               <p>کل ایڈوانس: {formatMoney(summary.totalAdvances)} روپے</p>
               <p>کل کٹوتیاں: {formatMoney(summary.totalDeductions)} روپے</p>
               <p>موجودہ پیشگی: {formatMoney(summary.currentPeshgi)} روپے</p>
+              <p>کیری فارورڈ: {formatMoney(summary.carryForward)} روپے</p>
 
               <hr className="my-4" />
 
