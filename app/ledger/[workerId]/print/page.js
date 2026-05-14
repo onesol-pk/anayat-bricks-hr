@@ -300,7 +300,7 @@ export default function PrintLedgerPage() {
               <p>کل ایڈوانس: {formatMoney(summary.totalAdvances)} روپے</p>
               <p>کل کٹوتیاں: {formatMoney(summary.totalDeductions)} روپے</p>
               <p>موجودہ پیشگی: {formatMoney(summary.currentPeshgi)} روپے</p>
-              <p>کیری فارورڈ: {formatMoney(summary.carryForward)} روپے</p>
+              <p>سابقہ بقایا: {formatMoney(summary.carryForward)} روپے</p>
 
               <hr className="my-4" />
 
