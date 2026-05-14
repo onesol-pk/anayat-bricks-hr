@@ -27,11 +27,13 @@ export default function AdvancesPage() {
     const d = new Date(selectedDate)
     const day = d.getDay()
 
+    // Friday = week start
     let diff
-    if (day >= 4) {
-      diff = day - 4
+
+    if (day >= 5) {
+      diff = day - 5
     } else {
-      diff = day + 3
+      diff = day + 2
     }
 
     d.setDate(d.getDate() - diff)
@@ -137,7 +139,6 @@ export default function AdvancesPage() {
         </Link>
       </div>
 
-      {/* FORM */}
       <div className="bg-[#0f223a] p-6 rounded-xl mb-10 max-w-2xl">
         <h2 className="text-2xl font-semibold mb-6">
           Add Advance
@@ -188,7 +189,6 @@ export default function AdvancesPage() {
         </form>
       </div>
 
-      {/* HISTORY */}
       <div className="bg-[#0f223a] p-6 rounded-xl">
         <h2 className="text-2xl font-semibold mb-6">
           Advance History
