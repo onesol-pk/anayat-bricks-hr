@@ -182,18 +182,14 @@ export default function PrintLedgerPage() {
       const workData = workRes.data || []
       const advancesData = advancesRes.data || []
       const deductionsData = deductionsRes.data || []
-      const financialHistoryData = financialHistoryRes.data || []
       const financialAllData = financialAllRes.data || []
-
-      const rate = Number(workerData.default_rate) || 0
 
       const bricksMade = workData.reduce((sum, item) => {
         return sum + (Number(item.bricks) || 0)
       }, 0)
 
       const totalEarnings = workData.reduce((sum, item) => {
-        const bricks = Number(item.bricks) || 0
-        return sum + (bricks / 1000) * rate
+        return sum + (Number(item.total_amount) || 0)
       }, 0)
 
       const totalAdvances = advancesData.reduce((sum, item) => {
