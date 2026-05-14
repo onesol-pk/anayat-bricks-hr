@@ -11,6 +11,7 @@ export default function WorkEntryPage() {
   const [workerId, setWorkerId] = useState("")
   const [date, setDate] = useState("")
   const [bricks, setBricks] = useState("")
+  const [ratePer1000, setRatePer1000] = useState("")
 
   useEffect(() => {
     fetchWorkers()
@@ -68,7 +69,7 @@ export default function WorkEntryPage() {
   async function handleSubmit(e) {
     e.preventDefault()
 
-    if (!workerId || !date || !bricks) {
+    if (!workerId || !date || !bricks || !ratePer1000) {
       alert("Please fill all required fields")
       return
     }
@@ -80,6 +81,7 @@ export default function WorkEntryPage() {
         worker_id: workerId,
         date,
         bricks: Number(bricks),
+        rate_per_1000: Number(ratePer1000),
         week_start: weekStart,
       },
     ])
@@ -94,6 +96,7 @@ export default function WorkEntryPage() {
     setWorkerId("")
     setDate("")
     setBricks("")
+    setRatePer1000("")
     fetchEntries()
   }
 
@@ -119,7 +122,7 @@ export default function WorkEntryPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
         >
           <select
             value={workerId}
@@ -152,7 +155,16 @@ export default function WorkEntryPage() {
             required
           />
 
-          <button className="md:col-span-3 bg-orange-500 p-3 rounded font-semibold hover:opacity-90 transition">
+          <input
+            type="number"
+            placeholder="Rate / 1000"
+            value={ratePer1000}
+            onChange={(e) => setRatePer1000(e.target.value)}
+            className="p-3 rounded bg-[#081a2f]"
+            required
+          />
+
+          <button className="md:col-span-2 lg:col-span-4 bg-orange-500 p-3 rounded font-semibold hover:opacity-90 transition">
             Save Entry
           </button>
         </form>
@@ -172,6 +184,7 @@ export default function WorkEntryPage() {
                 <th className="pb-3">Worker</th>
                 <th className="pb-3">Date</th>
                 <th className="pb-3">Bricks</th>
+                <th className="pb-3">Rate / 1000</th>
                 <th className="pb-3">Week Start</th>
               </tr>
             </thead>
@@ -187,6 +200,7 @@ export default function WorkEntryPage() {
                   </td>
                   <td>{entry.date}</td>
                   <td>{entry.bricks}</td>
+                  <td>{entry.rate_per_1000 || "-"}</td>
                   <td>{entry.week_start}</td>
                 </tr>
               ))}
