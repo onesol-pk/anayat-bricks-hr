@@ -47,6 +47,7 @@ function calculateCurrentPeshgi(transactions = []) {
       case "damage":
         return sum + amount
 
+      case "deduction":
       case "return":
         return sum - amount
 
@@ -54,6 +55,17 @@ function calculateCurrentPeshgi(transactions = []) {
         return sum
     }
   }, 0)
+}
+
+const typeOrder = {
+  Work: 1,
+  Advance: 2,
+  Deduction: 3,
+  Peshgi: 4,
+  Electricity: 5,
+  Loan: 6,
+  Damage: 7,
+  Return: 8,
 }
 
 export default function PrintLedgerPage() {
@@ -152,6 +164,7 @@ export default function PrintLedgerPage() {
             "electricity",
             "loan",
             "damage",
+            "deduction",
             "return",
           ]),
       ])
@@ -250,7 +263,7 @@ export default function PrintLedgerPage() {
       combinedTransactions.sort((a, b) => {
         const dateDiff = new Date(a.date) - new Date(b.date)
         if (dateDiff !== 0) return dateDiff
-        return (summary.typeOrder?.[a.type] || 99) - (summary.typeOrder?.[b.type] || 99)
+        return (typeOrder[a.type] || 99) - (typeOrder[b.type] || 99)
       })
 
       setWorkerInfo(workerData)
