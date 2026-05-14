@@ -218,15 +218,12 @@ export default function LedgerPage() {
       const financialHistoryData = financialHistoryRes.data || []
       const financialAllData = financialAllRes.data || []
 
-      const rate = Number(workerData.default_rate) || 0
-
       const bricksMade = workData.reduce((sum, item) => {
         return sum + (Number(item.bricks) || 0)
       }, 0)
 
       const totalEarnings = workData.reduce((sum, item) => {
-        const bricks = Number(item.bricks) || 0
-        return sum + (bricks / 1000) * rate
+        return sum + (Number(item.total_amount) || 0)
       }, 0)
 
       const totalAdvances = advancesData.reduce((sum, item) => {
@@ -254,13 +251,13 @@ export default function LedgerPage() {
 
       workData.forEach((item) => {
         const bricks = Number(item.bricks) || 0
-        const earning = (bricks / 1000) * rate
+        const amount = Number(item.total_amount) || 0
 
         combinedTransactions.push({
           date: item.date,
-          type: "Work",
-          details: `${bricks} bricks`,
-          amount: earning,
+          type: item.worker_type || "Work",
+          details: `${item.brick_type?.toUpperCase() || "-"} • ${formatMoney(bricks)} bricks @ Rs ${formatMoney(item.rate_per_1000)}`,
+          amount,
         })
       })
 
