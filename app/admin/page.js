@@ -1,3 +1,6 @@
+"use client"
+
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { createClient } from "@supabase/supabase-js"
 
@@ -45,6 +48,15 @@ const LABOUR_SECTIONS = [
   },
 ]
 
+const MODULES = [
+  { href: "/workers", title: "Workers", desc: "Manage worker records" },
+  { href: "/work-entry", title: "Daily Work Entry", desc: "Record production by brick type" },
+  { href: "/advances", title: "Advances", desc: "Manage worker advances" },
+  { href: "/additions", title: "Additions to Khatta", desc: "Electricity, loan and damage" },
+  { href: "/deductions", title: "Deductions", desc: "Manage fines and other deductions" },
+  { href: "/ledger", title: "Ledger", desc: "View settlements and balances" },
+]
+
 function getTodayDateInput() {
   const now = new Date()
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
@@ -64,11 +76,6 @@ function titleCase(value) {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function getParamValue(input, fallback) {
-  if (Array.isArray(input)) return input[0] || fallback
-  return input || fallback
-}
-
 function buildEmptyReport() {
   return Object.fromEntries(
     LABOUR_SECTIONS.map((section) => [
@@ -83,116 +90,110 @@ function buildEmptyReport() {
   )
 }
 
-export default async function AdminDashboard({ searchParams }) {
-  const todayDate = getTodayDateInput()
+export default function AdminDashboard() {
+  const todayDate = useMemo(() => getTodayDateInput(), [])
+  const [dateFrom, setDateFrom] = useState(todayDate)
+  const [dateTo, setDateTo] = useState(todayDate)
+  const [loading, setLoading] = useState(true)
+  const [report, setReport] = useState(buildEmptyReport())
+  const [allEntries, setAllEntries] = useState([])
 
-  const rawFrom = getParamValue(searchParams?.from, todayDate)
-  const rawTo = getParamValue(searchParams?.to, todayDate)
+  async function fetchDashboard(fromDate = dateFrom, toDate = dateTo) {
+    const rangeFrom = fromDate <= toDate ? fromDate : toDate
+    const rangeTo = fromDate <= toDate ? toDate : fromDate
 
-  const rangeFrom = rawFrom <= rawTo ? rawFrom : rawTo
-  const rangeTo = rawFrom <= rawTo ? rawTo : rawFrom
+    setLoading(true)
 
-  const [workEntriesRes, workersRes] = await Promise.all([
-    supabase
-      .from("work_entries")
-      .select(`
-        id,
-        worker_id,
-        date,
-        created_at,
-        worker_type,
-        brick_type,
-        bricks,
-        rate_per_1000,
-        total_amount
-      `)
-      .gte("date", rangeFrom)
-      .lte("date", rangeTo)
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false }),
+    try {
+      const [workEntriesRes, workersRes] = await Promise.all([
+        supabase
+          .from("work_entries")
+          .select(`
+            id,
+            worker_id,
+            date,
+            created_at,
+            worker_type,
+            brick_type,
+            bricks,
+            rate_per_1000,
+            total_amount
+          `)
+          .gte("date", rangeFrom)
+          .lte("date", rangeTo)
+          .order("date", { ascending: false })
+          .order("created_at", { ascending: false }),
 
-    supabase.from("workers").select("id, name, worker_type"),
-  ])
+        supabase
+          .from("workers")
+          .select("id, name, worker_type"),
+      ])
 
-  if (workEntriesRes.error) {
-    throw new Error(workEntriesRes.error.message)
-  }
+      if (workEntriesRes.error) throw workEntriesRes.error
+      if (workersRes.error) throw workersRes.error
 
-  if (workersRes.error) {
-    throw new Error(workersRes.error.message)
-  }
+      const workersById = new Map(
+        (workersRes.data || []).map((worker) => [worker.id, worker])
+      )
 
-  const workersById = new Map(
-    (workersRes.data || []).map((worker) => [worker.id, worker])
-  )
+      const nextReport = buildEmptyReport()
+      const nextEntries = []
 
-  const report = buildEmptyReport()
-  const allEntries = []
+      ;(workEntriesRes.data || []).forEach((entry) => {
+        const worker = workersById.get(entry.worker_id)
 
-  ;(workEntriesRes.data || []).forEach((entry) => {
-    const worker = workersById.get(entry.worker_id)
+        const workerType = String(
+          entry.worker_type || worker?.worker_type || ""
+        ).toLowerCase()
 
-    const workerType = String(
-      entry.worker_type || worker?.worker_type || ""
-    ).toLowerCase()
+        const brickType = String(entry.brick_type || "").toLowerCase()
+        const bricks = Number(entry.bricks) || 0
+        const amount = Number(entry.total_amount) || 0
 
-    const brickType = String(entry.brick_type || "").toLowerCase()
-    const bricks = Number(entry.bricks) || 0
-    const amount = Number(entry.total_amount) || 0
+        if (nextReport[workerType] && nextReport[workerType][brickType]) {
+          nextReport[workerType][brickType].bricks += bricks
+          nextReport[workerType][brickType].amount += amount
+          nextReport[workerType][brickType].entries += 1
+        }
 
-    if (report[workerType] && report[workerType][brickType]) {
-      report[workerType][brickType].bricks += bricks
-      report[workerType][brickType].amount += amount
-      report[workerType][brickType].entries += 1
+        nextEntries.push({
+          id: entry.id,
+          date: entry.date,
+          created_at: entry.created_at,
+          workerType,
+          workerName: worker?.name || "-",
+          brickType,
+          bricks,
+          ratePer1000: Number(entry.rate_per_1000) || 0,
+          amount,
+        })
+      })
+
+      setReport(nextReport)
+      setAllEntries(nextEntries)
+    } catch (error) {
+      alert(error.message || "Failed to load dashboard")
+    } finally {
+      setLoading(false)
     }
+  }
 
-    allEntries.push({
-      id: entry.id,
-      date: entry.date,
-      created_at: entry.created_at,
-      workerType,
-      workerName: worker?.name || "-",
-      brickType,
-      bricks,
-      ratePer1000: Number(entry.rate_per_1000) || 0,
-      amount,
-    })
-  })
+  useEffect(() => {
+    fetchDashboard()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const modules = [
-    {
-      href: "/workers",
-      title: "Workers",
-      desc: "Manage worker records",
-    },
-    {
-      href: "/work-entry",
-      title: "Daily Work Entry",
-      desc: "Record production by brick type",
-    },
-    {
-      href: "/advances",
-      title: "Advances",
-      desc: "Manage worker advances",
-    },
-    {
-      href: "/additions",
-      title: "Additions to Khatta",
-      desc: "Electricity, loan and damage",
-    },
-    {
-      href: "/deductions",
-      title: "Deductions",
-      desc: "Manage fines and other deductions",
-    },
-    {
-      href: "/ledger",
-      title: "Ledger",
-      desc: "View settlements and balances",
-    },
-  ]
+  function handleSubmit(e) {
+    e.preventDefault()
+    fetchDashboard(dateFrom, dateTo)
+  }
 
-  const todayLink = `/admin?from=${todayDate}&to=${todayDate}`
+  function handleToday() {
+    const today = getTodayDateInput()
+    setDateFrom(today)
+    setDateTo(today)
+    fetchDashboard(today, today)
+  }
 
   return (
     <div className="min-h-screen bg-[#061226] text-white">
@@ -213,18 +214,15 @@ export default async function AdminDashboard({ searchParams }) {
             </div>
 
             <div className="bg-[#0f223a] border border-white/10 rounded-3xl p-4 shadow-2xl w-full lg:w-[430px]">
-              <form
-                method="get"
-                className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-              >
+              <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
                     From
                   </label>
                   <input
                     type="date"
-                    name="from"
-                    defaultValue={rangeFrom}
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
                     className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
                   />
                 </div>
@@ -235,8 +233,8 @@ export default async function AdminDashboard({ searchParams }) {
                   </label>
                   <input
                     type="date"
-                    name="to"
-                    defaultValue={rangeTo}
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
                     className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
                   />
                 </div>
@@ -249,12 +247,13 @@ export default async function AdminDashboard({ searchParams }) {
                     Apply Filter
                   </button>
 
-                  <Link
-                    href={todayLink}
+                  <button
+                    type="button"
+                    onClick={handleToday}
                     className="rounded-xl bg-white/5 px-5 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10"
                   >
                     Today
-                  </Link>
+                  </button>
                 </div>
               </form>
             </div>
@@ -283,7 +282,9 @@ export default async function AdminDashboard({ searchParams }) {
                   <div className="relative p-6 md:p-7">
                     <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-6">
                       <div>
-                        <p className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${section.chip}`}>
+                        <p
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${section.chip}`}
+                        >
                           {titleCase(section.key)}
                         </p>
                         <h2 className="text-2xl md:text-3xl font-bold mt-3">
@@ -297,7 +298,7 @@ export default async function AdminDashboard({ searchParams }) {
                           Filtered range
                         </p>
                         <p className="text-sm text-gray-200 mt-1">
-                          {rangeFrom} → {rangeTo}
+                          {dateFrom} → {dateTo}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
                           {sectionCount} entry{sectionCount === 1 ? "" : "ies"}
@@ -332,9 +333,7 @@ export default async function AdminDashboard({ searchParams }) {
                             <div className="mt-4 h-2 rounded-full bg-black/20 overflow-hidden">
                               <div
                                 className="h-full rounded-full bg-orange-500/80"
-                                style={{
-                                  width: item.bricks > 0 ? "100%" : "0%",
-                                }}
+                                style={{ width: item.bricks > 0 ? "100%" : "0%" }}
                               />
                             </div>
 
@@ -362,7 +361,7 @@ export default async function AdminDashboard({ searchParams }) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {modules.map((item) => (
+              {MODULES.map((item) => (
                 <Link key={item.href} href={item.href}>
                   <div className="group h-full rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:-translate-y-0.5 hover:bg-white/10 hover:border-orange-500/30">
                     <h3 className="text-lg font-semibold group-hover:text-orange-300">
@@ -380,7 +379,7 @@ export default async function AdminDashboard({ searchParams }) {
               <div>
                 <h2 className="text-2xl font-bold">Filtered Work Entries</h2>
                 <p className="text-gray-400 mt-1">
-                  Showing records for {rangeFrom} to {rangeTo}
+                  Showing records for {dateFrom} to {dateTo}
                 </p>
               </div>
             </div>
@@ -400,7 +399,13 @@ export default async function AdminDashboard({ searchParams }) {
                 </thead>
 
                 <tbody>
-                  {allEntries.length === 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td className="py-6 text-gray-400" colSpan={7}>
+                        Loading dashboard...
+                      </td>
+                    </tr>
+                  ) : allEntries.length === 0 ? (
                     <tr>
                       <td className="py-6 text-gray-400" colSpan={7}>
                         No work entries found for the selected period.
@@ -418,9 +423,7 @@ export default async function AdminDashboard({ searchParams }) {
                           {entry.brickType || "-"}
                         </td>
                         <td className="py-3 pr-4">{formatNumber(entry.bricks)}</td>
-                        <td className="py-3 pr-4">
-                          Rs {formatNumber(entry.ratePer1000)}
-                        </td>
+                        <td className="py-3 pr-4">Rs {formatNumber(entry.ratePer1000)}</td>
                         <td className="py-3 pr-4 text-orange-300 font-semibold">
                           Rs {formatNumber(entry.amount)}
                         </td>
