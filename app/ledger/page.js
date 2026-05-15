@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { supabase } from "../../lib/supabase"
 
@@ -36,6 +36,13 @@ function getCurrentWeekRange() {
   }
 }
 
+function titleCase(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 function calculateCurrentPeshgi(transactions = []) {
   return transactions.reduce((sum, tx) => {
     const amount = Number(tx.amount) || 0
@@ -59,7 +66,7 @@ function calculateCurrentPeshgi(transactions = []) {
 }
 
 export default function LedgerPage() {
-  const currentWeek = getCurrentWeekRange()
+  const currentWeek = useMemo(() => getCurrentWeekRange(), [])
 
   const [workers, setWorkers] = useState([])
   const [selectedWorker, setSelectedWorker] = useState("")
@@ -83,6 +90,7 @@ export default function LedgerPage() {
 
   useEffect(() => {
     fetchWorkers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -95,6 +103,7 @@ export default function LedgerPage() {
     if (selectedWorker) {
       fetchLedger()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWorker, dateFrom, dateTo])
 
   async function fetchWorkers() {
@@ -256,7 +265,9 @@ export default function LedgerPage() {
         combinedTransactions.push({
           date: item.date,
           type: item.worker_type || "Work",
-          details: `${item.brick_type?.toUpperCase() || "-"} • ${formatMoney(bricks)} bricks @ Rs ${formatMoney(item.rate_per_1000)}`,
+          details: `${item.brick_type?.toUpperCase() || "-"} • ${formatMoney(
+            bricks
+          )} bricks @ Rs ${formatMoney(item.rate_per_1000)}`,
           amount,
         })
       })
@@ -386,226 +397,269 @@ export default function LedgerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#061226] text-white p-8">
-      <div className="flex items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-4xl font-bold text-orange-500">
-            Worker Ledger
-          </h1>
-          {workerInfo && (
-            <p className="text-gray-400 mt-2">
-              {workerInfo.worker_type?.toUpperCase()} - {workerInfo.name}
-            </p>
-          )}
-        </div>
+    <div className="min-h-screen bg-[#061226] text-white">
+      <div className="px-8 pt-8 pb-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-orange-400 uppercase tracking-[0.35em] text-xs mb-3">
+                Kiln Operations Center
+              </p>
+              <h1 className="text-4xl md:text-5xl font-bold text-white">
+                Worker Ledger
+              </h1>
+              <p className="text-gray-400 mt-3 max-w-2xl">
+                Review weekly settlements, carry forward balances, and print the final slip.
+              </p>
+            </div>
 
-        <Link href="/admin">
-          <button className="bg-[#0f223a] px-4 py-2 rounded-lg">
-            Back to Dashboard
-          </button>
-        </Link>
-      </div>
-
-      <div className="bg-[#0f223a] p-6 rounded-xl mb-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
-          <div className="lg:col-span-2">
-            <label className="block text-sm text-gray-400 mb-2">
-              Worker
-            </label>
-            <select
-              value={selectedWorker}
-              onChange={(e) => setSelectedWorker(e.target.value)}
-              className="w-full p-3 rounded bg-[#081a2f] border border-gray-700"
-            >
-              <option value="">Select Worker</option>
-              {workers.map((worker) => (
-                <option key={worker.id} value={worker.id}>
-                  {worker.worker_type?.toUpperCase()} - {worker.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">
-              From
-            </label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full p-3 rounded bg-[#081a2f] border border-gray-700"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">
-              To
-            </label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-full p-3 rounded bg-[#081a2f] border border-gray-700"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-3 mt-4">
-          <button
-            type="button"
-            onClick={resetToCurrentWeek}
-            className="bg-[#081a2f] px-4 py-2 rounded-lg border border-gray-700"
-          >
-            Current Week
-          </button>
-
-          <span className="text-gray-400 self-center">
-            Friday to Thursday cycle
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-        <div className="bg-[#0f223a] p-6 rounded-xl">
-          <p className="text-gray-400">Bricks Made</p>
-          <h2 className="text-3xl font-bold text-orange-500 mt-2">
-            {formatMoney(summary.bricksMade)}
-          </h2>
-        </div>
-
-        <div className="bg-[#0f223a] p-6 rounded-xl">
-          <p className="text-gray-400">Total Earnings</p>
-          <h2 className="text-3xl font-bold text-orange-500 mt-2">
-            Rs {formatMoney(summary.totalEarnings)}
-          </h2>
-        </div>
-
-        <div className="bg-[#0f223a] p-6 rounded-xl">
-          <p className="text-gray-400">Total Advances</p>
-          <h2 className="text-3xl font-bold text-orange-500 mt-2">
-            Rs {formatMoney(summary.totalAdvances)}
-          </h2>
-        </div>
-
-        <div className="bg-[#0f223a] p-6 rounded-xl">
-          <p className="text-gray-400">Total Deductions</p>
-          <h2 className="text-3xl font-bold text-orange-500 mt-2">
-            Rs {formatMoney(summary.totalDeductions)}
-          </h2>
-        </div>
-
-        <div className="bg-[#0f223a] p-6 rounded-xl">
-          <p className="text-gray-400">Current Peshgi</p>
-          <h2 className="text-3xl font-bold text-orange-500 mt-2">
-            Rs {formatMoney(summary.currentPeshgi)}
-          </h2>
-        </div>
-
-        <div className="bg-[#0f223a] p-6 rounded-xl">
-          <p className="text-gray-400">Carry Forward</p>
-          <h2
-            className={`text-3xl font-bold mt-2 ${
-              Number(summary.carryForward) < 0 ? "text-red-400" : "text-orange-500"
-            }`}
-          >
-            Rs {formatMoney(summary.carryForward)}
-          </h2>
-        </div>
-
-        <div className="bg-[#0f223a] p-6 rounded-xl xl:col-span-3">
-          <p className="text-gray-400">Final Weekly Salary</p>
-          <h2 className="text-3xl font-bold text-orange-500 mt-2">
-            Rs {formatMoney(summary.finalWeeklySalary)}
-          </h2>
-        </div>
-      </div>
-
-      <div className="bg-[#0f223a] p-6 rounded-xl mb-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-semibold">Actions</h2>
-            <p className="text-gray-400 mt-1">
-              {settlementStatus?.payment_status === "paid"
-                ? "This week is already marked as paid"
-                : "Mark the selected week as paid after reviewing the ledger"}
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={markPaid}
-              disabled={!selectedWorker || loading}
-              className="bg-green-600 px-6 py-3 rounded-lg font-semibold disabled:opacity-50"
-            >
-              Mark Paid
-            </button>
-
-            <button
-              onClick={printSlip}
-              disabled={!selectedWorker || loading}
-              className="bg-orange-500 px-6 py-3 rounded-lg font-semibold disabled:opacity-50"
-            >
-              Print
-            </button>
+            <Link href="/admin">
+              <button className="rounded-xl bg-white/5 px-5 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10">
+                Back to Dashboard
+              </button>
+            </Link>
           </div>
         </div>
       </div>
 
-      <div className="bg-[#0f223a] rounded-xl p-6">
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <h2 className="text-2xl font-semibold">
-            Transaction History
-          </h2>
-          <span className="text-gray-400">
-            {dateFrom} to {dateTo}
-          </span>
-        </div>
+      <div className="px-8 pb-10">
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* FILTERS */}
+          <section className="relative overflow-hidden rounded-3xl border border-orange-500/20 bg-[#0f223a] shadow-2xl">
+            <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-orange-500/25 via-orange-500/10 to-transparent" />
+            <div className="relative p-6 md:p-7">
+              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-6">
+                <div>
+                  <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold bg-orange-500/15 text-orange-200">
+                    Ledger Filter
+                  </p>
+                  <h2 className="text-2xl md:text-3xl font-bold mt-3">
+                    Select Worker and Date Range
+                  </h2>
+                  <p className="text-gray-400 mt-1">
+                    Friday to Thursday cycle is used by default.
+                  </p>
+                </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-gray-700 text-orange-400">
-                <th className="py-3">Date</th>
-                <th className="py-3">Type</th>
-                <th className="py-3">Details</th>
-                <th className="py-3">Amount</th>
-              </tr>
-            </thead>
+                <div className="text-right">
+                  <p className="text-xs uppercase tracking-[0.25em] text-gray-500">
+                    Selected range
+                  </p>
+                  <p className="text-sm text-gray-200 mt-1">
+                    {dateFrom} → {dateTo}
+                  </p>
+                </div>
+              </div>
 
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td className="py-6 text-gray-400" colSpan={4}>
-                    Loading ledger...
-                  </td>
-                </tr>
-              ) : transactions.length === 0 ? (
-                <tr>
-                  <td className="py-6 text-gray-400" colSpan={4}>
-                    No transactions found for this period.
-                  </td>
-                </tr>
-              ) : (
-                transactions.map((item, index) => (
-                  <tr key={index} className="border-b border-gray-800">
-                    <td className="py-3">{item.date}</td>
-                    <td>{item.type}</td>
-                    <td>{item.details}</td>
-                    <td
-                      className={
-                        Number(item.amount) >= 0
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }
-                    >
-                      Rs {formatMoney(item.amount)}
-                    </td>
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+                <div className="lg:col-span-2">
+                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    Worker
+                  </label>
+                  <select
+                    value={selectedWorker}
+                    onChange={(e) => setSelectedWorker(e.target.value)}
+                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                  >
+                    <option value="">Select Worker</option>
+                    {workers.map((worker) => (
+                      <option key={worker.id} value={worker.id}>
+                        {titleCase(worker.worker_type)} - {worker.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    From
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    To
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={resetToCurrentWeek}
+                  className="rounded-xl bg-white/5 px-4 py-2 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10"
+                >
+                  Current Week
+                </button>
+
+                <span className="text-gray-400 self-center">
+                  Friday to Thursday cycle
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* SUMMARY */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="bg-[#0f223a] rounded-3xl border border-orange-500/20 p-6 shadow-2xl">
+              <p className="text-gray-400">Bricks Made</p>
+              <h2 className="text-3xl font-bold text-orange-300 mt-2">
+                {formatNumber(summary.bricksMade)}
+              </h2>
+            </div>
+
+            <div className="bg-[#0f223a] rounded-3xl border border-orange-500/20 p-6 shadow-2xl">
+              <p className="text-gray-400">Total Earnings</p>
+              <h2 className="text-3xl font-bold text-orange-300 mt-2">
+                Rs {formatMoney(summary.totalEarnings)}
+              </h2>
+            </div>
+
+            <div className="bg-[#0f223a] rounded-3xl border border-orange-500/20 p-6 shadow-2xl">
+              <p className="text-gray-400">Total Advances</p>
+              <h2 className="text-3xl font-bold text-orange-300 mt-2">
+                Rs {formatMoney(summary.totalAdvances)}
+              </h2>
+            </div>
+
+            <div className="bg-[#0f223a] rounded-3xl border border-orange-500/20 p-6 shadow-2xl">
+              <p className="text-gray-400">Total Deductions</p>
+              <h2 className="text-3xl font-bold text-orange-300 mt-2">
+                Rs {formatMoney(summary.totalDeductions)}
+              </h2>
+            </div>
+
+            <div className="bg-[#0f223a] rounded-3xl border border-orange-500/20 p-6 shadow-2xl">
+              <p className="text-gray-400">Current Peshgi</p>
+              <h2 className="text-3xl font-bold text-orange-300 mt-2">
+                Rs {formatMoney(summary.currentPeshgi)}
+              </h2>
+            </div>
+
+            <div className="bg-[#0f223a] rounded-3xl border border-orange-500/20 p-6 shadow-2xl">
+              <p className="text-gray-400">Carry Forward</p>
+              <h2
+                className={`text-3xl font-bold mt-2 ${
+                  Number(summary.carryForward) < 0 ? "text-red-400" : "text-orange-300"
+                }`}
+              >
+                Rs {formatMoney(summary.carryForward)}
+              </h2>
+            </div>
+
+            <div className="bg-[#0f223a] rounded-3xl border border-orange-500/20 p-6 shadow-2xl xl:col-span-3">
+              <p className="text-gray-400">Final Weekly Salary</p>
+              <h2 className="text-3xl font-bold text-orange-300 mt-2">
+                Rs {formatMoney(summary.finalWeeklySalary)}
+              </h2>
+            </div>
+          </div>
+
+          {/* ACTIONS */}
+          <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold">Actions</h2>
+                <p className="text-gray-400 mt-1">
+                  {settlementStatus?.payment_status === "paid"
+                    ? "This week is already marked as paid"
+                    : "Mark the selected week as paid after reviewing the ledger"}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={markPaid}
+                  disabled={!selectedWorker || loading}
+                  className="rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
+                >
+                  Mark Paid
+                </button>
+
+                <button
+                  onClick={printSlip}
+                  disabled={!selectedWorker || loading}
+                  className="rounded-xl bg-orange-500 px-6 py-3 font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
+                >
+                  Print
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* TRANSACTIONS */}
+          <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold">Transaction History</h2>
+                <p className="text-gray-400 mt-1">
+                  All entries included in the selected settlement period.
+                </p>
+              </div>
+
+              <div className="text-sm text-gray-400">
+                {dateFrom} → {dateTo}
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-gray-700 text-orange-400">
+                    <th className="py-3 pr-4">Date</th>
+                    <th className="py-3 pr-4">Type</th>
+                    <th className="py-3 pr-4">Details</th>
+                    <th className="py-3 pr-4">Amount</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td className="py-6 text-gray-400" colSpan={4}>
+                        Loading ledger...
+                      </td>
+                    </tr>
+                  ) : transactions.length === 0 ? (
+                    <tr>
+                      <td className="py-6 text-gray-400" colSpan={4}>
+                        No transactions found for this period.
+                      </td>
+                    </tr>
+                  ) : (
+                    transactions.map((item, index) => (
+                      <tr key={index} className="border-b border-gray-800">
+                        <td className="py-3 pr-4">{item.date}</td>
+                        <td className="py-3 pr-4">{item.type}</td>
+                        <td className="py-3 pr-4">{item.details}</td>
+                        <td
+                          className={
+                            Number(item.amount) >= 0
+                              ? "py-3 pr-4 text-emerald-300 font-semibold"
+                              : "py-3 pr-4 text-rose-300 font-semibold"
+                          }
+                        >
+                          Rs {formatMoney(item.amount)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </div>
     </div>
