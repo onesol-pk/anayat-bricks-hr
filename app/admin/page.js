@@ -95,14 +95,19 @@ export default async function AdminDashboard({ searchParams }) {
   const { data: workEntries, error } = await supabase
     .from("work_entries")
     .select(`
-      bricks,
-      rate_per_1000,
-      total_amount,
+      id,
+      worker_id,
       date,
       created_at,
       worker_type,
       brick_type,
-      workers(name, worker_type)
+      bricks,
+      rate_per_1000,
+      total_amount,
+      worker:workers!work_entries_worker_id_fkey(
+        name,
+        worker_type
+      )
     `)
     .gte("date", rangeFrom)
     .lte("date", rangeTo)
@@ -118,7 +123,7 @@ export default async function AdminDashboard({ searchParams }) {
 
   ;(workEntries || []).forEach((entry) => {
     const workerType = String(
-      entry.worker_type || entry.workers?.worker_type || ""
+      entry.worker_type || entry.worker?.worker_type || ""
     ).toLowerCase()
 
     const brickType = String(entry.brick_type || "").toLowerCase()
@@ -132,11 +137,11 @@ export default async function AdminDashboard({ searchParams }) {
     }
 
     allEntries.push({
-      id: entry.created_at || `${entry.date}-${entry.brick_type}-${entry.worker_type}`,
+      id: entry.id,
       date: entry.date,
       created_at: entry.created_at,
       workerType,
-      workerName: entry.workers?.name || "-",
+      workerName: entry.worker?.name || "-",
       brickType,
       bricks,
       ratePer1000: Number(entry.rate_per_1000) || 0,
@@ -294,6 +299,7 @@ export default async function AdminDashboard({ searchParams }) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {section.brickTypes.map((brickType) => {
                         const item = sectionTotals[brickType]
+
                         return (
                           <div
                             key={brickType}
@@ -318,10 +324,7 @@ export default async function AdminDashboard({ searchParams }) {
                               <div
                                 className="h-full rounded-full bg-orange-500/80"
                                 style={{
-                                  width:
-                                    item.bricks > 0
-                                      ? "100%"
-                                      : "0%",
+                                  width: item.bricks > 0 ? "100%" : "0%",
                                 }}
                               />
                             </div>
