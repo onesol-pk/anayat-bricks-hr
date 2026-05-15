@@ -95,12 +95,9 @@ export default async function AdminDashboard({ searchParams }) {
   const { data: workEntries, error } = await supabase
     .from("work_entries")
     .select(`
-  *,
-  worker:workers (
-    name,
-    worker_type
-  )
-`)
+      *,
+      workers(name, worker_type)
+    `)
     .gte("date", rangeFrom)
     .lte("date", rangeTo)
     .order("date", { ascending: false })
@@ -115,7 +112,7 @@ export default async function AdminDashboard({ searchParams }) {
 
   ;(workEntries || []).forEach((entry) => {
     const workerType = String(
-      entry.worker_type || entry.worker?.worker_type || ""
+      entry.worker_type || entry.workers?.worker_type || ""
     ).toLowerCase()
 
     const brickType = String(entry.brick_type || "").toLowerCase()
@@ -133,7 +130,7 @@ export default async function AdminDashboard({ searchParams }) {
       date: entry.date,
       created_at: entry.created_at,
       workerType,
-      workerName: entry.worker?.name || "-",
+      workerName: entry.workers?.name || "-",
       brickType,
       bricks,
       ratePer1000: Number(entry.rate_per_1000) || 0,
@@ -174,7 +171,7 @@ export default async function AdminDashboard({ searchParams }) {
     },
   ]
 
-  const todayLink = `/admin?from=${todayDate}&to=${todayDate}`
+  const todayLink = `/admin?from=${todayDate}&to=${todayDate}`;
 
   return (
     <div className="min-h-screen bg-[#061226] text-white">
@@ -246,7 +243,6 @@ export default async function AdminDashboard({ searchParams }) {
 
       <div className="px-8 pb-10">
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* REPORTING BLOCKS */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {LABOUR_SECTIONS.map((section) => {
               const sectionTotals = report[section.key]
@@ -334,7 +330,6 @@ export default async function AdminDashboard({ searchParams }) {
             })}
           </div>
 
-          {/* MODULES */}
           <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
             <div className="flex items-center justify-between gap-4 mb-6">
               <div>
@@ -359,7 +354,6 @@ export default async function AdminDashboard({ searchParams }) {
             </div>
           </section>
 
-          {/* RECENT ENTRIES */}
           <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
               <div>
