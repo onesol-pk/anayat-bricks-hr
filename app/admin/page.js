@@ -111,9 +111,7 @@ export default async function AdminDashboard({ searchParams }) {
       .order("date", { ascending: false })
       .order("created_at", { ascending: false }),
 
-    supabase
-      .from("workers")
-      .select("id, name, worker_type"),
+    supabase.from("workers").select("id, name, worker_type"),
   ])
 
   if (workEntriesRes.error) {
@@ -285,17 +283,13 @@ export default async function AdminDashboard({ searchParams }) {
                   <div className="relative p-6 md:p-7">
                     <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-6">
                       <div>
-                        <p
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${section.chip}`}
-                        >
+                        <p className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${section.chip}`}>
                           {titleCase(section.key)}
                         </p>
                         <h2 className="text-2xl md:text-3xl font-bold mt-3">
                           {section.title}
                         </h2>
-                        <p className="text-gray-400 mt-1">
-                          {section.subtitle}
-                        </p>
+                        <p className="text-gray-400 mt-1">{section.subtitle}</p>
                       </div>
 
                       <div className="text-right">
