@@ -7,8 +7,8 @@ import { supabase } from "../../lib/supabase"
 const BRICK_TYPES = {
   patheer: ["gutka", "tile", "special"],
   bharai: ["gutka", "tile", "special"],
-  nakasi: ["awal", "dome", "tirak", "tile", "special"],
-  loading: ["awal", "dome", "tirak", "tile", "special"],
+  nakasi: ["awal", "dome", "tirak", "tile", "special", "Kachi kali"],
+  loading: ["awal", "dome", "tirak", "tile", "special", "Kachi kali"],
 }
 
 function getTodayDateInput() {
