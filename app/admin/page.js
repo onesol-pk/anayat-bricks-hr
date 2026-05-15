@@ -92,27 +92,50 @@ export default async function AdminDashboard({ searchParams }) {
   const rangeFrom = rawFrom <= rawTo ? rawFrom : rawTo
   const rangeTo = rawFrom <= rawTo ? rawTo : rawFrom
 
-  const { data: workEntries, error } = await supabase
-    .from("work_entries")
-    .select(`
-      *,
-      workers(name, worker_type)
-    `)
-    .gte("date", rangeFrom)
-    .lte("date", rangeTo)
-    .order("date", { ascending: false })
-    .order("created_at", { ascending: false })
+  const [workEntriesRes, workersRes] = await Promise.all([
+    supabase
+      .from("work_entries")
+      .select(`
+        id,
+        worker_id,
+        date,
+        created_at,
+        worker_type,
+        brick_type,
+        bricks,
+        rate_per_1000,
+        total_amount
+      `)
+      .gte("date", rangeFrom)
+      .lte("date", rangeTo)
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false }),
 
-  if (error) {
-    throw new Error(error.message)
+    supabase
+      .from("workers")
+      .select("id, name, worker_type"),
+  ])
+
+  if (workEntriesRes.error) {
+    throw new Error(workEntriesRes.error.message)
   }
+
+  if (workersRes.error) {
+    throw new Error(workersRes.error.message)
+  }
+
+  const workersById = new Map(
+    (workersRes.data || []).map((worker) => [worker.id, worker])
+  )
 
   const report = buildEmptyReport()
   const allEntries = []
 
-  ;(workEntries || []).forEach((entry) => {
+  ;(workEntriesRes.data || []).forEach((entry) => {
+    const worker = workersById.get(entry.worker_id)
+
     const workerType = String(
-      entry.worker_type || entry.workers?.worker_type || ""
+      entry.worker_type || worker?.worker_type || ""
     ).toLowerCase()
 
     const brickType = String(entry.brick_type || "").toLowerCase()
@@ -130,7 +153,7 @@ export default async function AdminDashboard({ searchParams }) {
       date: entry.date,
       created_at: entry.created_at,
       workerType,
-      workerName: entry.workers?.name || "-",
+      workerName: worker?.name || "-",
       brickType,
       bricks,
       ratePer1000: Number(entry.rate_per_1000) || 0,
@@ -171,7 +194,7 @@ export default async function AdminDashboard({ searchParams }) {
     },
   ]
 
-  const todayLink = `/admin?from=${todayDate}&to=${todayDate}`;
+  const todayLink = `/admin?from=${todayDate}&to=${todayDate}`
 
   return (
     <div className="min-h-screen bg-[#061226] text-white">
@@ -262,13 +285,17 @@ export default async function AdminDashboard({ searchParams }) {
                   <div className="relative p-6 md:p-7">
                     <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-6">
                       <div>
-                        <p className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${section.chip}`}>
+                        <p
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${section.chip}`}
+                        >
                           {titleCase(section.key)}
                         </p>
                         <h2 className="text-2xl md:text-3xl font-bold mt-3">
                           {section.title}
                         </h2>
-                        <p className="text-gray-400 mt-1">{section.subtitle}</p>
+                        <p className="text-gray-400 mt-1">
+                          {section.subtitle}
+                        </p>
                       </div>
 
                       <div className="text-right">
@@ -357,9 +384,7 @@ export default async function AdminDashboard({ searchParams }) {
           <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-2xl font-bold">
-                  Filtered Work Entries
-                </h2>
+                <h2 className="text-2xl font-bold">Filtered Work Entries</h2>
                 <p className="text-gray-400 mt-1">
                   Showing records for {rangeFrom} to {rangeTo}
                 </p>
