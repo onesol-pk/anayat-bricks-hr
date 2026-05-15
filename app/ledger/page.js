@@ -10,6 +10,13 @@ function formatMoney(value) {
     maximumFractionDigits: 0,
   }).format(Math.round(number))
 }
+function formatNumber(value) {
+  const number = Number(value) || 0
+
+  return new Intl.NumberFormat("en-PK", {
+    maximumFractionDigits: 0,
+  }).format(Math.round(number))
+}
 
 function toDateInput(date) {
   return date.toISOString().split("T")[0]
