@@ -95,20 +95,12 @@ export default async function AdminDashboard({ searchParams }) {
   const { data: workEntries, error } = await supabase
     .from("work_entries")
     .select(`
-      id,
-      worker_id,
-      date,
-      created_at,
-      worker_type,
-      brick_type,
-      bricks,
-      rate_per_1000,
-      total_amount,
-      worker:workers!work_entries_worker_id_fkey(
-        name,
-        worker_type
-      )
-    `)
+  *,
+  worker:workers (
+    name,
+    worker_type
+  )
+`)
     .gte("date", rangeFrom)
     .lte("date", rangeTo)
     .order("date", { ascending: false })
