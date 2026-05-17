@@ -265,7 +265,7 @@ export default function AdminDashboard() {
     stockTypes.forEach((type) => {
       const nakasiQty = report.nakasi?.[type]?.bricks || 0
       const loadingQty = report.loading?.[type]?.bricks || 0
-      stockByType[type] = nakasiQty - loadingQty
+      stockByType[type] = loadingQty - nakasiQty
     })
 
     const totalStock = Object.values(stockByType).reduce((sum, val) => sum + val, 0)
@@ -638,7 +638,7 @@ export default function AdminDashboard() {
               <div>
                 <h2 className="text-2xl font-bold">Stock</h2>
                 <p className="text-gray-400 mt-1">
-                  Nakasi minus Loading for each stock type.
+                  Loading minus Nakasi for each stock type.
                 </p>
               </div>
               <div className="text-sm text-gray-400">
@@ -662,7 +662,7 @@ export default function AdminDashboard() {
                         {formatNumber(current)}
                       </p>
                       <p className="mt-2 text-sm text-gray-400">
-                        Nakasi - Loading
+                         Loading - Nakasi
                       </p>
                     </div>
                   )
