@@ -3,6 +3,9 @@
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { createClient } from "@supabase/supabase-js"
+const [visibleRows, setVisibleRows] = useState(10)
+const [fromDate, setFromDate] = useState("")
+const [toDate, setToDate] = useState("")
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -462,62 +465,238 @@ export default function CustomerPaymentsPage() {
           </section>
 
           {/* LEDGER HISTORY */}
-          <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-2xl font-bold">Ledger History</h2>
-                <p className="text-gray-400 mt-1">
-                  Combined sales and payment entries for the selected customer.
-                </p>
-              </div>
+<section
+  id="customer-ledger-print"
+  className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl"
+>
+  {(() => {
+    const filteredLedgerRows = ledgerRows.filter((row) => {
+      if (fromDate && row.date < fromDate) return false
+      if (toDate && row.date > toDate) return false
+      return true
+    })
+
+    const visibleLedgerRows = filteredLedgerRows.slice(0, visibleRows)
+
+    function handlePrintLedger() {
+      const printContents = document.getElementById(
+        "customer-ledger-print"
+      ).innerHTML
+
+      const printWindow = window.open("", "", "width=1200,height=800")
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Customer Ledger</title>
+
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                padding: 30px;
+                color: #000;
+              }
+
+              h1 {
+                margin-bottom: 6px;
+              }
+
+              .sub {
+                color: #666;
+                margin-bottom: 25px;
+              }
+
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+              }
+
+              th, td {
+                border: 1px solid #d1d5db;
+                padding: 10px;
+                text-align: left;
+                font-size: 14px;
+              }
+
+              th {
+                background: #f3f4f6;
+                font-weight: bold;
+              }
+
+              .green {
+                color: #059669;
+                font-weight: bold;
+              }
+
+              .red {
+                color: #dc2626;
+                font-weight: bold;
+              }
+
+              button,
+              input {
+                display: none !important;
+              }
+
+              .hide-print {
+                display: none !important;
+              }
+            </style>
+          </head>
+
+          <body>
+            <h1>Customer Ledger</h1>
+
+            <div class="sub">
+              ${selectedCustomer?.name || ""}
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-gray-700 text-orange-400">
-                    <th className="py-3 pr-4">Date</th>
-                    <th className="py-3 pr-4">Type</th>
-                    <th className="py-3 pr-4">Details</th>
-                    <th className="py-3 pr-4">Amount</th>
+            ${printContents}
+          </body>
+        </html>
+      `)
+
+      printWindow.document.close()
+      printWindow.focus()
+
+      setTimeout(() => {
+        printWindow.print()
+      }, 500)
+    }
+
+    return (
+      <>
+        <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-5 mb-6">
+          <div>
+            <h2 className="text-2xl font-bold">Ledger History</h2>
+
+            <p className="text-gray-400 mt-1">
+              Combined sales and payment entries for the selected customer.
+            </p>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-3 hide-print">
+            <div>
+              <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                From
+              </label>
+
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setVisibleRows(10)
+                  setFromDate(e.target.value)
+                }}
+                className="rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                To
+              </label>
+
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setVisibleRows(10)
+                  setToDate(e.target.value)
+                }}
+                className="rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+              />
+            </div>
+
+            <div className="flex items-end">
+              <button
+                onClick={handlePrintLedger}
+                className="rounded-xl bg-orange-500 px-5 py-3 font-semibold text-white hover:opacity-90 transition"
+              >
+                Print Ledger
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-gray-700 text-orange-400">
+                <th className="py-3 pr-4">Date</th>
+                <th className="py-3 pr-4">Type</th>
+                <th className="py-3 pr-4">Details</th>
+                <th className="py-3 pr-4">Amount</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td className="py-6 text-gray-400" colSpan={4}>
+                    Loading customer ledger...
+                  </td>
+                </tr>
+              ) : visibleLedgerRows.length === 0 ? (
+                <tr>
+                  <td className="py-6 text-gray-400" colSpan={4}>
+                    No transactions found for this customer yet.
+                  </td>
+                </tr>
+              ) : (
+                visibleLedgerRows.map((row) => (
+                  <tr key={row.id} className="border-b border-gray-800">
+                    <td className="py-3 pr-4">
+                      {row.date}
+                    </td>
+
+                    <td className="py-3 pr-4">
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                          row.type === "Payment"
+                            ? "bg-emerald-500/15 text-emerald-300"
+                            : "bg-rose-500/15 text-rose-300"
+                        }`}
+                      >
+                        {row.type}
+                      </span>
+                    </td>
+
+                    <td className="py-3 pr-4">
+                      {row.details}
+                    </td>
+
+                    <td
+                      className={
+                        row.amount >= 0
+                          ? "py-3 pr-4 text-emerald-300 font-semibold"
+                          : "py-3 pr-4 text-rose-300 font-semibold"
+                      }
+                    >
+                      Rs {formatMoney(Math.abs(row.amount))}
+                    </td>
                   </tr>
-                </thead>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td className="py-6 text-gray-400" colSpan={4}>
-                        Loading customer ledger...
-                      </td>
-                    </tr>
-                  ) : ledgerRows.length === 0 ? (
-                    <tr>
-                      <td className="py-6 text-gray-400" colSpan={4}>
-                        No transactions found for this customer yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    ledgerRows.map((row) => (
-                      <tr key={row.id} className="border-b border-gray-800">
-                        <td className="py-3 pr-4">{row.date}</td>
-                        <td className="py-3 pr-4">{row.type}</td>
-                        <td className="py-3 pr-4">{row.details}</td>
-                        <td
-                          className={
-                            row.amount >= 0
-                              ? "py-3 pr-4 text-emerald-300 font-semibold"
-                              : "py-3 pr-4 text-rose-300 font-semibold"
-                          }
-                        >
-                          Rs {formatMoney(row.amount)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+        {filteredLedgerRows.length > visibleRows && (
+          <div className="mt-6 flex justify-center hide-print">
+            <button
+              onClick={() => setVisibleRows((prev) => prev + 10)}
+              className="rounded-xl bg-white/5 px-6 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10"
+            >
+              Load More
+            </button>
+          </div>
+        )}
+      </>
+    )
+  })()}
+</section>
         </div>
       </div>
     </div>
