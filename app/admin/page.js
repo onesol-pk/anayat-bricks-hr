@@ -64,12 +64,12 @@ const MENU_GROUPS = [
     ],
   },
   {
-  title: "Customers",
-  items: [
-    { href: "/customers", label: "Customers" },
-    { href: "/customer-payments", label: "Customer Payments" },
-  ],
-}
+    title: "Customers",
+    items: [
+      { href: "/customers", label: "Customers" },
+      { href: "/customer-payments", label: "Customer Payments" },
+    ],
+  },
   {
     title: "Financials",
     items: [
