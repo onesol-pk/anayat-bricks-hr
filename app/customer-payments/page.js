@@ -81,34 +81,36 @@ export default function CustomerPaymentsPage() {
   }, [sales])
 
   const ledgerRows = useMemo(() => {
-    const rows = []
+  const rows = []
 
-    sales.forEach((sale) => {
-      rows.push({
-        id: `sale-${sale.id}`,
-        date: sale.sale_date,
-        type: "Sale",
-        details: `${titleCase(sale.brick_type)} • ${formatMoney(
-          sale.quantity
-        )} qty @ Rs ${formatMoney(sale.rate)}`,
-        amount: -1 * (Number(sale.total_amount) || 0),
-      })
+  sales.forEach((sale) => {
+    rows.push({
+      id: `sale-${sale.id}`,
+      date: sale.sale_date,
+      type: "Sale",
+      details: `${titleCase(sale.brick_type)} • ${formatMoney(
+        sale.quantity
+      )} qty @ Rs ${formatMoney(sale.rate)}`,
+      delivery: `${sale.driver_name || "-"} / ${titleCase(sale.tractor_type) || "-"}`,
+      amount: -1 * (Number(sale.total_amount) || 0),
     })
+  })
 
-    payments.forEach((payment) => {
-      rows.push({
-        id: `payment-${payment.id}`,
-        date: payment.payment_date,
-        type: "Payment",
-        details: `${titleCase(payment.payment_method)}${
-          payment.notes ? ` • ${payment.notes}` : ""
-        }`,
-        amount: Number(payment.amount) || 0,
-      })
+  payments.forEach((payment) => {
+    rows.push({
+      id: `payment-${payment.id}`,
+      date: payment.payment_date,
+      type: "Payment",
+      details: `${titleCase(payment.payment_method)}${
+        payment.notes ? ` • ${payment.notes}` : ""
+      }`,
+      delivery: "-",
+      amount: Number(payment.amount) || 0,
     })
+  })
 
-    return rows.sort((a, b) => new Date(b.date) - new Date(a.date))
-  }, [sales, payments])
+  return rows.sort((a, b) => new Date(b.date) - new Date(a.date))
+}, [sales, payments])
 
   async function fetchCustomers() {
     setLoading(true)
@@ -627,59 +629,57 @@ export default function CustomerPaymentsPage() {
                 <th className="py-3 pr-4">Date</th>
                 <th className="py-3 pr-4">Type</th>
                 <th className="py-3 pr-4">Details</th>
+                <th className="py-3 pr-4">Delivery</th>
                 <th className="py-3 pr-4">Amount</th>
               </tr>
             </thead>
 
             <tbody>
-              {loading ? (
-                <tr>
-                  <td className="py-6 text-gray-400" colSpan={4}>
-                    Loading customer ledger...
-                  </td>
-                </tr>
-              ) : visibleLedgerRows.length === 0 ? (
-                <tr>
-                  <td className="py-6 text-gray-400" colSpan={4}>
-                    No transactions found for this customer yet.
-                  </td>
-                </tr>
-              ) : (
-                visibleLedgerRows.map((row) => (
-                  <tr key={row.id} className="border-b border-gray-800">
-                    <td className="py-3 pr-4">
-                      {row.date}
-                    </td>
+  {loading ? (
+    <tr>
+      <td className="py-6 text-gray-400" colSpan={5}>
+        Loading customer ledger...
+      </td>
+    </tr>
+  ) : visibleLedgerRows.length === 0 ? (
+    <tr>
+      <td className="py-6 text-gray-400" colSpan={5}>
+        No transactions found for this customer yet.
+      </td>
+    </tr>
+  ) : (
+    visibleLedgerRows.map((row) => (
+      <tr key={row.id} className="border-b border-gray-800">
+        <td className="py-3 pr-4">{row.date}</td>
 
-                    <td className="py-3 pr-4">
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                          row.type === "Payment"
-                            ? "bg-emerald-500/15 text-emerald-300"
-                            : "bg-rose-500/15 text-rose-300"
-                        }`}
-                      >
-                        {row.type}
-                      </span>
-                    </td>
+        <td className="py-3 pr-4">
+          <span
+            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+              row.type === "Payment"
+                ? "bg-emerald-500/15 text-emerald-300"
+                : "bg-rose-500/15 text-rose-300"
+            }`}
+          >
+            {row.type}
+          </span>
+        </td>
 
-                    <td className="py-3 pr-4">
-                      {row.details}
-                    </td>
+        <td className="py-3 pr-4">{row.details}</td>
+        <td className="py-3 pr-4">{row.delivery}</td>
 
-                    <td
-                      className={
-                        row.amount >= 0
-                          ? "py-3 pr-4 text-emerald-300 font-semibold"
-                          : "py-3 pr-4 text-rose-300 font-semibold"
-                      }
-                    >
-                      Rs {formatMoney(Math.abs(row.amount))}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
+        <td
+          className={
+            row.amount >= 0
+              ? "py-3 pr-4 text-emerald-300 font-semibold"
+              : "py-3 pr-4 text-rose-300 font-semibold"
+          }
+        >
+          Rs {formatMoney(Math.abs(row.amount))}
+        </td>
+      </tr>
+    ))
+  )}
+</tbody>
           </table>
         </div>
 
