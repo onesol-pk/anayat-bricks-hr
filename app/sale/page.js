@@ -100,7 +100,7 @@ export default function SalePage() {
   const [notes, setNotes] = useState("")
   const [saleDate, setSaleDate] = useState(getTodayDateInput())
 
-  const [lastSale, setLastSale] = useState(null)
+  const [savedSale, setSavedSale] = useState(null)
 
   useEffect(() => {
     fetchData()
@@ -142,6 +142,24 @@ export default function SalePage() {
   const totalStock = useMemo(() => {
     return Object.values(stockMap).reduce((sum, value) => sum + value, 0)
   }, [stockMap])
+
+  const liveReceipt = {
+    id: null,
+    customer_name: selectedCustomer?.name || "",
+    customer_type: customerType,
+    brick_type: brickType,
+    quantity: Number(quantity) || 0,
+    rate: Number(rate) || 0,
+    total_amount: totalAmount,
+    paid_amount: effectivePaidAmount,
+    balance_after: currentBalanceAfter,
+    driver_name: driverName.trim(),
+    tractor_type: tractorType,
+    notes: notes.trim(),
+    sale_date: saleDate,
+  }
+
+  const receipt = savedSale || liveReceipt
 
   async function fetchData() {
     setLoading(true)
@@ -252,32 +270,21 @@ export default function SalePage() {
       }
 
       const { error: stockError } = await supabase
-  .from("stock_movements")
-  .insert([
-    {
-      movement_type: "out",
-      source_module: "sale",
-      brick_type: brickType,
-      quantity: qty,
-      reference_id: insertedSale.id,
-      notes: notes.trim() || `Sale to ${selectedCustomer.name}`,
-      movement_date: saleDate,
-    },
-  ])
+        .from("stock_movements")
+        .insert([
+          {
+            movement_type: "out",
+            source_module: "sale",
+            brick_type: brickType,
+            quantity: qty,
+            reference_id: insertedSale.id,
+            notes: notes.trim() || `Sale to ${selectedCustomer.name}`,
+            movement_date: saleDate,
+          },
+        ])
 
       if (stockError) {
-        alert(
-          "Sale saved but stock movement failed: " + stockError.message
-        )
-        setLastSale({
-          ...insertedSale,
-          customer: selectedCustomer,
-          paid_amount: paid,
-          total_amount: total,
-          balance_after: balanceAfter,
-        })
-        fetchData()
-        return
+        alert("Sale saved but stock movement failed: " + stockError.message)
       }
 
       if (!isCashSale) {
@@ -293,24 +300,23 @@ export default function SalePage() {
             "Sale saved but customer balance update failed: " +
               customerError.message
           )
-          setLastSale({
-            ...insertedSale,
-            customer: selectedCustomer,
-            paid_amount: paid,
-            total_amount: total,
-            balance_after: balanceAfter,
-          })
-          fetchData()
-          return
         }
       }
 
-      setLastSale({
+      setSavedSale({
         ...insertedSale,
-        customer: selectedCustomer,
-        paid_amount: paid,
+        customer_name: selectedCustomer.name,
+        customer_type: customerType,
+        brick_type: brickType,
+        quantity: qty,
+        rate: unitRate,
         total_amount: total,
+        paid_amount: paid,
         balance_after: balanceAfter,
+        driver_name: driverName.trim(),
+        tractor_type: tractorType,
+        notes: notes.trim(),
+        sale_date: saleDate,
       })
 
       alert("Sale saved successfully")
@@ -322,15 +328,18 @@ export default function SalePage() {
   }
 
   function handlePrint() {
-    if (!lastSale) {
+    if (!savedSale?.id) {
       alert("Please save a sale before printing")
       return
     }
 
-    window.print()
+    window.open(`/sale/print/${savedSale.id}`, "_blank", "noopener,noreferrer")
   }
 
-  const recentSales = sales
+  function startNewSale() {
+    setSavedSale(null)
+    resetForm(true)
+  }
 
   return (
     <div className="min-h-screen bg-[#061226] text-white">
@@ -360,7 +369,6 @@ export default function SalePage() {
 
       <div className="no-print px-4 pb-10 md:px-8">
         <div className="mx-auto max-w-7xl space-y-8">
-          {/* STATS */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             <div className="rounded-3xl border border-orange-500/20 bg-[#0f223a] p-6 shadow-2xl">
               <p className="text-gray-400">Sales Entries</p>
@@ -392,7 +400,6 @@ export default function SalePage() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* FORM */}
             <section className="xl:col-span-2 relative overflow-hidden rounded-3xl border border-orange-500/20 bg-[#0f223a] shadow-2xl">
               <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-orange-500/25 via-orange-500/10 to-transparent" />
               <div className="relative p-6 md:p-7">
@@ -591,12 +598,19 @@ export default function SalePage() {
                     >
                       Print Slip
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={startNewSale}
+                      className="rounded-xl bg-white/5 px-6 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10"
+                    >
+                      New Sale
+                    </button>
                   </div>
                 </form>
               </div>
             </section>
 
-            {/* RECEIPT PREVIEW */}
             <section className="sale-receipt relative overflow-hidden rounded-3xl border border-white/10 bg-[#0f223a] shadow-2xl">
               <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-violet-500/25 via-violet-500/10 to-transparent" />
               <div className="relative p-6 md:p-7">
@@ -615,20 +629,20 @@ export default function SalePage() {
                       Balance
                     </p>
                     <p className="text-sm text-gray-200 mt-1">
-                      Rs {formatMoney(currentBalanceAfter)}
+                      Rs {formatMoney(receipt.balance_after)}
                     </p>
                   </div>
                 </div>
 
-                {selectedCustomer ? (
+                {receipt.customer_name ? (
                   <div className="space-y-3 text-sm">
                     <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                       <p className="text-gray-400">Customer</p>
                       <p className="mt-1 text-lg font-semibold text-white">
-                        {selectedCustomer.name}
+                        {receipt.customer_name}
                       </p>
                       <p className="text-gray-400 mt-1">
-                        {titleCase(customerType)} customer
+                        {titleCase(receipt.customer_type)} customer
                       </p>
                     </div>
 
@@ -636,13 +650,17 @@ export default function SalePage() {
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                         <p className="text-gray-400">Previous Balance</p>
                         <p className="mt-1 text-lg font-semibold text-orange-200">
-                          Rs {formatMoney(previousBalance)}
+                          Rs {formatMoney(
+                            receipt.customer_type === "cash"
+                              ? previousBalance
+                              : previousBalance
+                          )}
                         </p>
                       </div>
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                         <p className="text-gray-400">Sale Mode</p>
                         <p className="mt-1 text-lg font-semibold text-white">
-                          {isCashSale ? "Cash" : "Khatta"}
+                          {titleCase(receipt.customer_type)}
                         </p>
                       </div>
                     </div>
@@ -651,13 +669,13 @@ export default function SalePage() {
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                         <p className="text-gray-400">Brick Type</p>
                         <p className="mt-1 text-lg font-semibold text-white">
-                          {titleCase(brickType)}
+                          {titleCase(receipt.brick_type)}
                         </p>
                       </div>
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                         <p className="text-gray-400">Quantity</p>
                         <p className="mt-1 text-lg font-semibold text-white">
-                          {formatMoney(quantity || 0)}
+                          {formatMoney(receipt.quantity)}
                         </p>
                       </div>
                     </div>
@@ -666,13 +684,13 @@ export default function SalePage() {
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                         <p className="text-gray-400">Rate</p>
                         <p className="mt-1 text-lg font-semibold text-white">
-                          Rs {formatMoney(rate || 0)}
+                          Rs {formatMoney(receipt.rate)}
                         </p>
                       </div>
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                         <p className="text-gray-400">Total</p>
                         <p className="mt-1 text-lg font-semibold text-orange-200">
-                          Rs {formatMoney(totalAmount)}
+                          Rs {formatMoney(receipt.total_amount)}
                         </p>
                       </div>
                     </div>
@@ -681,13 +699,13 @@ export default function SalePage() {
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                         <p className="text-gray-400">Paid</p>
                         <p className="mt-1 text-lg font-semibold text-emerald-300">
-                          Rs {formatMoney(effectivePaidAmount)}
+                          Rs {formatMoney(receipt.paid_amount)}
                         </p>
                       </div>
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                         <p className="text-gray-400">After Sale</p>
                         <p className="mt-1 text-lg font-semibold text-sky-300">
-                          Rs {formatMoney(currentBalanceAfter)}
+                          Rs {formatMoney(receipt.balance_after)}
                         </p>
                       </div>
                     </div>
@@ -695,14 +713,14 @@ export default function SalePage() {
                     <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                       <p className="text-gray-400">Driver / Tractor</p>
                       <p className="mt-1 text-base font-semibold text-white">
-                        {driverName || "-"} / {titleCase(tractorType)}
+                        {receipt.driver_name || "-"} / {titleCase(receipt.tractor_type)}
                       </p>
                     </div>
 
                     <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                       <p className="text-gray-400">Notes</p>
                       <p className="mt-1 text-base text-white">
-                        {notes || "-"}
+                        {receipt.notes || "-"}
                       </p>
                     </div>
                   </div>
@@ -715,7 +733,6 @@ export default function SalePage() {
             </section>
           </div>
 
-          {/* STOCK */}
           <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
               <div>
@@ -750,7 +767,6 @@ export default function SalePage() {
             </div>
           </section>
 
-          {/* HISTORY */}
           <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
               <div>
@@ -784,14 +800,14 @@ export default function SalePage() {
                         Loading sales...
                       </td>
                     </tr>
-                  ) : recentSales.length === 0 ? (
+                  ) : sales.length === 0 ? (
                     <tr>
                       <td className="py-6 text-gray-400" colSpan={9}>
                         No sales recorded yet.
                       </td>
                     </tr>
                   ) : (
-                    recentSales.map((sale) => (
+                    sales.map((sale) => (
                       <tr key={sale.id} className="border-b border-gray-800">
                         <td className="py-3 pr-4">{sale.sale_date}</td>
                         <td className="py-3 pr-4">
@@ -859,7 +875,6 @@ export default function SalePage() {
           }
 
           .sale-receipt .border-white\/10,
-          .sale-receipt .border-white\/10 *,
           .sale-receipt .border-orange-500\/20 {
             border-color: #ddd !important;
           }
