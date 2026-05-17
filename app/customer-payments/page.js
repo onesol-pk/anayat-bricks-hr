@@ -3,9 +3,6 @@
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { createClient } from "@supabase/supabase-js"
-const [visibleRows, setVisibleRows] = useState(10)
-const [fromDate, setFromDate] = useState("")
-const [toDate, setToDate] = useState("")
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -45,6 +42,9 @@ export default function CustomerPaymentsPage() {
   const [paymentMethod, setPaymentMethod] = useState("cash")
   const [notes, setNotes] = useState("")
   const [paymentDate, setPaymentDate] = useState(getTodayDateInput())
+  const [visibleRows, setVisibleRows] = useState(10)
+  const [fromDate, setFromDate] = useState("")
+  const [toDate, setToDate] = useState("")
 
   useEffect(() => {
     fetchCustomers()
