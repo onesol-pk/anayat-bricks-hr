@@ -1,8 +1,26 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@supabase/supabase-js"
+import {
+  LayoutDashboard,
+  Users,
+  ClipboardList,
+  BookOpen,
+  Wallet,
+  PlusCircle,
+  MinusCircle,
+  Receipt,
+  Landmark,
+  BarChart3,
+  Truck,
+  LogOut,
+  Menu,
+  X,
+  Boxes,
+} from "lucide-react"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -35,7 +53,7 @@ const LABOUR_SECTIONS = [
     accent: "from-sky-500/25 via-sky-500/10 to-transparent",
     border: "border-sky-500/20",
     chip: "bg-sky-500/15 text-sky-200",
-    brickTypes: ["awal", "dome", "tirak", "tile", "special"],
+    brickTypes: ["awal", "dome", "tirak", "tile", "special", "kachi kali"],
   },
   {
     key: "loading",
@@ -44,17 +62,41 @@ const LABOUR_SECTIONS = [
     accent: "from-violet-500/25 via-violet-500/10 to-transparent",
     border: "border-violet-500/20",
     chip: "bg-violet-500/15 text-violet-200",
-    brickTypes: ["awal", "dome", "tirak", "tile", "special"],
+    brickTypes: ["awal", "dome", "tirak", "tile", "special", "kachi kali"],
   },
 ]
 
-const MODULES = [
-  { href: "/workers", title: "Workers", desc: "Manage worker records" },
-  { href: "/work-entry", title: "Daily Work Entry", desc: "Record production by brick type" },
-  { href: "/advances", title: "Advances", desc: "Manage worker advances" },
-  { href: "/additions", title: "Additions to Khatta", desc: "Electricity, loan and damage" },
-  { href: "/deductions", title: "Deductions", desc: "Manage fines and other deductions" },
-  { href: "/ledger", title: "Ledger", desc: "View settlements and balances" },
+const MENU_GROUPS = [
+  {
+    title: "Overview",
+    items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }],
+  },
+  {
+    title: "Operations",
+    items: [
+      { href: "/workers", label: "Workers", icon: Users },
+      { href: "/work-entry", label: "Work Entry", icon: ClipboardList },
+      { href: "/ledger", label: "Ledger", icon: BookOpen },
+      { href: "/sale", label: "Sale", icon: Truck },
+    ],
+  },
+  {
+    title: "Customers",
+    items: [
+      { href: "/customers", label: "Customers", icon: Users },
+    ],
+  },
+  {
+    title: "Financials",
+    items: [
+      { href: "/advances", label: "Advances", icon: Wallet },
+      { href: "/additions", label: "Additions", icon: PlusCircle },
+      { href: "/deductions", label: "Deductions", icon: MinusCircle },
+      { href: "/expenses", label: "Expenses", icon: Receipt },
+      { href: "/income", label: "Income", icon: Landmark },
+      { href: "/rokar", label: "Rokar", icon: BarChart3 },
+    ],
+  },
 ]
 
 function getTodayDateInput() {
@@ -91,12 +133,19 @@ function buildEmptyReport() {
 }
 
 export default function AdminDashboard() {
+  const router = useRouter()
+  const pathname = usePathname()
+
   const todayDate = useMemo(() => getTodayDateInput(), [])
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   const [dateFrom, setDateFrom] = useState(todayDate)
   const [dateTo, setDateTo] = useState(todayDate)
+
   const [loading, setLoading] = useState(true)
   const [report, setReport] = useState(buildEmptyReport())
   const [allEntries, setAllEntries] = useState([])
+  const [workersCount, setWorkersCount] = useState(0)
 
   async function fetchDashboard(fromDate = dateFrom, toDate = dateTo) {
     const rangeFrom = fromDate <= toDate ? fromDate : toDate
@@ -124,9 +173,7 @@ export default function AdminDashboard() {
           .order("date", { ascending: false })
           .order("created_at", { ascending: false }),
 
-        supabase
-          .from("workers")
-          .select("id, name, worker_type"),
+        supabase.from("workers").select("id, name, worker_type"),
       ])
 
       if (workEntriesRes.error) throw workEntriesRes.error
@@ -171,6 +218,7 @@ export default function AdminDashboard() {
 
       setReport(nextReport)
       setAllEntries(nextEntries)
+      setWorkersCount(workersRes.data?.length || 0)
     } catch (error) {
       alert(error.message || "Failed to load dashboard")
     } finally {
@@ -182,6 +230,18 @@ export default function AdminDashboard() {
     fetchDashboard()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function handleLogout() {
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    router.push("/login")
+    router.refresh()
+  }
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -195,246 +255,518 @@ export default function AdminDashboard() {
     fetchDashboard(today, today)
   }
 
+  const totals = useMemo(() => {
+    const totalBricks = allEntries.reduce((sum, item) => sum + item.bricks, 0)
+    const totalEarnings = allEntries.reduce((sum, item) => sum + item.amount, 0)
+    const totalEntries = allEntries.length
+
+    const stockByType = {}
+    const stockTypes = [
+      "awal",
+      "dome",
+      "tirak",
+      "tile",
+      "special",
+      "kachi kali",
+    ]
+
+    stockTypes.forEach((type) => {
+      const nikasi = report.nakasi?.[type]?.bricks || 0
+      const loadingQty = report.loading?.[type]?.bricks || 0
+      stockByType[type] = nikasi - loadingQty
+    })
+
+    const totalStock = Object.values(stockByType).reduce((sum, val) => sum + val, 0)
+
+    return {
+      totalBricks,
+      totalEarnings,
+      totalEntries,
+      totalStock,
+      stockByType,
+    }
+  }, [allEntries, report])
+
+  function SidebarContent() {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="px-5 py-5 border-b border-white/10">
+          <Link href="/admin" className="block" onClick={() => setSidebarOpen(false)}>
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-2xl bg-orange-500/15 border border-orange-500/20 flex items-center justify-center">
+                <Boxes className="h-5 w-5 text-orange-300" />
+              </div>
+              <div>
+                <p className="text-sm uppercase tracking-[0.25em] text-gray-400">
+                  Kiln Ops
+                </p>
+                <h2 className="text-lg font-bold text-white">Dashboard</h2>
+              </div>
+            </div>
+          </Link>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6">
+          {MENU_GROUPS.map((group) => (
+            <div key={group.title}>
+              <p className="px-2 text-xs uppercase tracking-[0.25em] text-gray-500 mb-3">
+                {group.title}
+              </p>
+
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon
+                  const isActive =
+                    item.href === "/admin"
+                      ? pathname === "/admin"
+                      : pathname?.startsWith(item.href)
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`flex items-center gap-3 rounded-2xl px-4 py-3 transition border ${
+                        isActive
+                          ? "bg-orange-500/15 border-orange-500/25 text-orange-200"
+                          : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="font-medium">{item.label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-white/10 p-4">
+          <button
+            onClick={handleLogout}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-500/15 border border-rose-500/20 px-4 py-3 font-semibold text-rose-200 hover:bg-rose-500/20 transition"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#061226] text-white">
-      <div className="px-8 pt-8 pb-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-orange-400 uppercase tracking-[0.35em] text-xs mb-3">
-                Kiln Operations Center
-              </p>
-              <h1 className="text-4xl md:text-5xl font-bold text-white">
-                Admin Dashboard
-              </h1>
-              <p className="text-gray-400 mt-3 max-w-2xl">
-                Filter the production snapshot by a specific day or a date range.
-                Set the same date in both fields for a single-day view.
-              </p>
-            </div>
+      {/* MOBILE TOP BAR */}
+      <div className="sticky top-0 z-40 border-b border-white/10 bg-[#061226]/95 backdrop-blur-xl lg:hidden">
+        <div className="flex items-center justify-between px-4 py-4">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-xl bg-white/5 border border-white/10 p-3"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
 
-            <div className="bg-[#0f223a] border border-white/10 rounded-3xl p-4 shadow-2xl w-full lg:w-[430px]">
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    From
-                  </label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    To
-                  </label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 flex flex-wrap gap-3 pt-1">
-                  <button
-                    type="submit"
-                    className="rounded-xl bg-orange-500 px-5 py-3 font-semibold text-white hover:opacity-90 transition"
-                  >
-                    Apply Filter
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleToday}
-                    className="rounded-xl bg-white/5 px-5 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10"
-                  >
-                    Today
-                  </button>
-                </div>
-              </form>
-            </div>
+          <div className="text-center">
+            <p className="text-xs uppercase tracking-[0.25em] text-gray-400">
+              Kiln Operations Center
+            </p>
+            <h1 className="text-lg font-bold">Dashboard</h1>
           </div>
+
+          <button
+            onClick={handleLogout}
+            className="rounded-xl bg-white/5 border border-white/10 p-3"
+            title="Logout"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
-      <div className="px-8 pb-10">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {LABOUR_SECTIONS.map((section) => {
-              const sectionTotals = report[section.key]
-              const sectionCount = Object.values(sectionTotals).reduce(
-                (sum, item) => sum + item.entries,
-                0
-              )
+      <div className="flex min-h-screen">
+        {/* DESKTOP SIDEBAR */}
+        <aside className="hidden lg:flex lg:w-80 xl:w-88 border-r border-white/10 bg-[#081a2f]">
+          <SidebarContent />
+        </aside>
 
-              return (
-                <section
-                  key={section.key}
-                  className={`relative overflow-hidden rounded-3xl border ${section.border} bg-[#0f223a] shadow-2xl`}
+        {/* MOBILE SIDEBAR DRAWER */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <button
+              aria-label="Close sidebar overlay"
+              className="absolute inset-0 bg-black/60"
+              onClick={() => setSidebarOpen(false)}
+            />
+            <aside className="absolute left-0 top-0 h-full w-[88%] max-w-sm bg-[#081a2f] border-r border-white/10 shadow-2xl">
+              <div className="flex items-center justify-between p-4 border-b border-white/10">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.25em] text-gray-400">
+                    Kiln Ops
+                  </p>
+                  <h2 className="text-lg font-bold">Menu</h2>
+                </div>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="rounded-xl bg-white/5 border border-white/10 p-3"
                 >
-                  <div
-                    className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-r ${section.accent}`}
-                  />
-                  <div className="relative p-6 md:p-7">
-                    <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-6">
-                      <div>
-                        <p
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${section.chip}`}
-                        >
-                          {titleCase(section.key)}
-                        </p>
-                        <h2 className="text-2xl md:text-3xl font-bold mt-3">
-                          {section.title}
-                        </h2>
-                        <p className="text-gray-400 mt-1">{section.subtitle}</p>
-                      </div>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
 
-                      <div className="text-right">
-                        <p className="text-xs uppercase tracking-[0.25em] text-gray-500">
-                          Filtered range
-                        </p>
-                        <p className="text-sm text-gray-200 mt-1">
-                          {dateFrom} → {dateTo}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {sectionCount} entry{sectionCount === 1 ? "" : "ies"}
-                        </p>
-                      </div>
-                    </div>
+              <SidebarContent />
+            </aside>
+          </div>
+        )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {section.brickTypes.map((brickType) => {
-                        const item = sectionTotals[brickType]
+        {/* MAIN CONTENT */}
+        <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
+          <div className="mx-auto max-w-7xl space-y-8">
+            {/* HEADER */}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-orange-400 uppercase tracking-[0.35em] text-xs mb-3">
+                  Kiln Operations Center
+                </p>
+                <h1 className="text-4xl md:text-5xl font-bold text-white">
+                  Dashboard
+                </h1>
+                <p className="text-gray-400 mt-3 max-w-2xl">
+                  Production, stock, and settlement overview for the selected date range.
+                </p>
+              </div>
 
-                        return (
-                          <div
-                            key={brickType}
-                            className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
+              <div className="hidden lg:flex items-center gap-3">
+                <button
+                  onClick={handleLogout}
+                  className="rounded-xl bg-white/5 px-5 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10 flex items-center gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </button>
+              </div>
+            </div>
+
+            {/* FILTER CARD */}
+            <section className="relative overflow-hidden rounded-3xl border border-orange-500/20 bg-[#0f223a] shadow-2xl">
+              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-orange-500/25 via-orange-500/10 to-transparent" />
+              <div className="relative p-6 md:p-7">
+                <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-6">
+                  <div>
+                    <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold bg-orange-500/15 text-orange-200">
+                      Dashboard Filter
+                    </p>
+                    <h2 className="text-2xl md:text-3xl font-bold mt-3">
+                      Select a Date or Range
+                    </h2>
+                    <p className="text-gray-400 mt-1">
+                      Use the same date in both fields for a single-day view.
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-xs uppercase tracking-[0.25em] text-gray-500">
+                      Selected range
+                    </p>
+                    <p className="text-sm text-gray-200 mt-1">
+                      {dateFrom} → {dateTo}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Workers tracked: {formatNumber(workersCount)}
+                    </p>
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={handleSubmit}
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+                >
+                  <div>
+                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                      From
+                    </label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                      To
+                    </label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2 lg:col-span-2 flex flex-wrap gap-3 items-end">
+                    <button
+                      type="submit"
+                      className="rounded-xl bg-orange-500 px-5 py-3 font-semibold text-white hover:opacity-90 transition"
+                    >
+                      Apply Filter
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleToday}
+                      className="rounded-xl bg-white/5 px-5 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10"
+                    >
+                      Today
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+
+            {/* SUMMARY KPI */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              <div className="rounded-3xl border border-orange-500/20 bg-[#0f223a] p-6 shadow-2xl">
+                <p className="text-gray-400">Entries</p>
+                <p className="mt-2 text-3xl font-bold text-orange-300">
+                  {formatNumber(totals.totalEntries)}
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-orange-500/20 bg-[#0f223a] p-6 shadow-2xl">
+                <p className="text-gray-400">Total Production</p>
+                <p className="mt-2 text-3xl font-bold text-orange-300">
+                  {formatNumber(totals.totalBricks)}
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-emerald-500/20 bg-[#0f223a] p-6 shadow-2xl">
+                <p className="text-gray-400">Estimated Earnings</p>
+                <p className="mt-2 text-3xl font-bold text-emerald-300">
+                  Rs {formatNumber(totals.totalEarnings)}
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-sky-500/20 bg-[#0f223a] p-6 shadow-2xl">
+                <p className="text-gray-400">Current Stock</p>
+                <p className="mt-2 text-3xl font-bold text-sky-300">
+                  {formatNumber(totals.totalStock)}
+                </p>
+              </div>
+            </div>
+
+            {/* LABOUR BLOCKS */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {LABOUR_SECTIONS.map((section) => {
+                const sectionTotals = report[section.key]
+                const sectionCount = Object.values(sectionTotals).reduce(
+                  (sum, item) => sum + item.entries,
+                  0
+                )
+
+                return (
+                  <section
+                    key={section.key}
+                    className={`relative overflow-hidden rounded-3xl border ${section.border} bg-[#0f223a] shadow-2xl`}
+                  >
+                    <div
+                      className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-r ${section.accent}`}
+                    />
+                    <div className="relative p-6 md:p-7">
+                      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-6">
+                        <div>
+                          <p
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${section.chip}`}
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-sm uppercase tracking-[0.2em] text-gray-400">
-                                  {titleCase(brickType)}
-                                </p>
-                                <p className="mt-2 text-3xl font-bold text-white">
-                                  {formatNumber(item.bricks)}
-                                </p>
+                            {titleCase(section.key)}
+                          </p>
+                          <h2 className="text-2xl md:text-3xl font-bold mt-3">
+                            {section.title}
+                          </h2>
+                          <p className="text-gray-400 mt-1">
+                            {section.subtitle}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-xs uppercase tracking-[0.25em] text-gray-500">
+                            Filtered range
+                          </p>
+                          <p className="text-sm text-gray-200 mt-1">
+                            {dateFrom} → {dateTo}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {sectionCount} entry{sectionCount === 1 ? "" : "ies"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {section.brickTypes.map((brickType) => {
+                          const item = sectionTotals[brickType]
+
+                          return (
+                            <div
+                              key={brickType}
+                              className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm uppercase tracking-[0.2em] text-gray-400">
+                                    {titleCase(brickType)}
+                                  </p>
+                                  <p className="mt-2 text-3xl font-bold text-white">
+                                    {formatNumber(item.bricks)}
+                                  </p>
+                                </div>
+
+                                <span className="rounded-full bg-black/20 px-3 py-1 text-xs text-gray-200 border border-white/10">
+                                  {item.entries} rec
+                                </span>
                               </div>
 
-                              <span className="rounded-full bg-black/20 px-3 py-1 text-xs text-gray-200 border border-white/10">
-                                {item.entries} rec
-                              </span>
-                            </div>
+                              <div className="mt-4 h-2 rounded-full bg-black/20 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-orange-500/80"
+                                  style={{
+                                    width: item.bricks > 0 ? "100%" : "0%",
+                                  }}
+                                />
+                              </div>
 
-                            <div className="mt-4 h-2 rounded-full bg-black/20 overflow-hidden">
-                              <div
-                                className="h-full rounded-full bg-orange-500/80"
-                                style={{ width: item.bricks > 0 ? "100%" : "0%" }}
-                              />
-                            </div>
+                              <p className="mt-3 text-sm text-gray-400">
+                                Qty recorded for the selected period
+                              </p>
 
-                            <p className="mt-3 text-sm text-gray-400">
-                              Qty recorded for the selected period
-                            </p>
-                          </div>
-                        )
-                      })}
+                              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                <div className="rounded-xl bg-black/20 border border-white/10 p-3">
+                                  <p className="text-gray-400">Total Amount</p>
+                                  <p className="mt-1 font-semibold text-orange-200">
+                                    Rs {formatNumber(item.amount)}
+                                  </p>
+                                </div>
+                                <div className="rounded-xl bg-black/20 border border-white/10 p-3">
+                                  <p className="text-gray-400">Entries</p>
+                                  <p className="mt-1 font-semibold text-white">
+                                    {item.entries}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                </section>
-              )
-            })}
-          </div>
+                  </section>
+                )
+              })}
+            </div>
 
-          <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
-            <div className="flex items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-2xl font-bold">Modules</h2>
-                <p className="text-gray-400 mt-1">
-                  Quick access to the main operational screens.
-                </p>
+            {/* STOCK BLOCK */}
+            <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
+              <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold">Stock</h2>
+                  <p className="text-gray-400 mt-1">
+                    Nikasi in minus loading out for each stock type.
+                  </p>
+                </div>
+                <div className="text-sm text-gray-400">
+                  {dateFrom} → {dateTo}
+                </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {MODULES.map((item) => (
-                <Link key={item.href} href={item.href}>
-                  <div className="group h-full rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:-translate-y-0.5 hover:bg-white/10 hover:border-orange-500/30">
-                    <h3 className="text-lg font-semibold group-hover:text-orange-300">
-                      {item.title}
-                    </h3>
-                    <p className="text-gray-400 mt-2">{item.desc}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-
-          <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-2xl font-bold">Filtered Work Entries</h2>
-                <p className="text-gray-400 mt-1">
-                  Showing records for {dateFrom} to {dateTo}
-                </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {["awal", "dome", "tirak", "tile", "special", "kachi kali"].map(
+                  (type) => {
+                    const current = totals.stockByType[type] || 0
+                    return (
+                      <div
+                        key={type}
+                        className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                      >
+                        <p className="text-sm uppercase tracking-[0.2em] text-gray-400">
+                          {titleCase(type)}
+                        </p>
+                        <p className="mt-2 text-3xl font-bold text-sky-300">
+                          {formatNumber(current)}
+                        </p>
+                        <p className="mt-2 text-sm text-gray-400">
+                          Nikasi - Loading
+                        </p>
+                      </div>
+                    )
+                  }
+                )}
               </div>
-            </div>
+            </section>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-gray-700 text-orange-400">
-                    <th className="py-3 pr-4">Date</th>
-                    <th className="py-3 pr-4">Labour</th>
-                    <th className="py-3 pr-4">Worker</th>
-                    <th className="py-3 pr-4">Brick Type</th>
-                    <th className="py-3 pr-4">Bricks</th>
-                    <th className="py-3 pr-4">Rate / 1000</th>
-                    <th className="py-3 pr-4">Total</th>
-                  </tr>
-                </thead>
+            {/* RECENT ENTRIES */}
+            <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
+              <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold">Filtered Work Entries</h2>
+                  <p className="text-gray-400 mt-1">
+                    Showing records for {dateFrom} to {dateTo}
+                  </p>
+                </div>
+              </div>
 
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td className="py-6 text-gray-400" colSpan={7}>
-                        Loading dashboard...
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-gray-700 text-orange-400">
+                      <th className="py-3 pr-4">Date</th>
+                      <th className="py-3 pr-4">Labour</th>
+                      <th className="py-3 pr-4">Worker</th>
+                      <th className="py-3 pr-4">Brick Type</th>
+                      <th className="py-3 pr-4">Bricks</th>
+                      <th className="py-3 pr-4">Rate / 1000</th>
+                      <th className="py-3 pr-4">Total</th>
                     </tr>
-                  ) : allEntries.length === 0 ? (
-                    <tr>
-                      <td className="py-6 text-gray-400" colSpan={7}>
-                        No work entries found for the selected period.
-                      </td>
-                    </tr>
-                  ) : (
-                    allEntries.map((entry) => (
-                      <tr key={entry.id} className="border-b border-gray-800">
-                        <td className="py-3 pr-4">{entry.date}</td>
-                        <td className="py-3 pr-4 capitalize">
-                          {entry.workerType || "-"}
-                        </td>
-                        <td className="py-3 pr-4">{entry.workerName}</td>
-                        <td className="py-3 pr-4 capitalize">
-                          {entry.brickType || "-"}
-                        </td>
-                        <td className="py-3 pr-4">{formatNumber(entry.bricks)}</td>
-                        <td className="py-3 pr-4">Rs {formatNumber(entry.ratePer1000)}</td>
-                        <td className="py-3 pr-4 text-orange-300 font-semibold">
-                          Rs {formatNumber(entry.amount)}
+                  </thead>
+
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <td className="py-6 text-gray-400" colSpan={7}>
+                          Loading dashboard...
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
+                    ) : allEntries.length === 0 ? (
+                      <tr>
+                        <td className="py-6 text-gray-400" colSpan={7}>
+                          No work entries found for the selected period.
+                        </td>
+                      </tr>
+                    ) : (
+                      allEntries.map((entry) => (
+                        <tr key={entry.id} className="border-b border-gray-800">
+                          <td className="py-3 pr-4">{entry.date}</td>
+                          <td className="py-3 pr-4 capitalize">
+                            {entry.workerType || "-"}
+                          </td>
+                          <td className="py-3 pr-4">{entry.workerName}</td>
+                          <td className="py-3 pr-4 capitalize">
+                            {entry.brickType || "-"}
+                          </td>
+                          <td className="py-3 pr-4">{formatNumber(entry.bricks)}</td>
+                          <td className="py-3 pr-4">
+                            Rs {formatNumber(entry.ratePer1000)}
+                          </td>
+                          <td className="py-3 pr-4 text-orange-300 font-semibold">
+                            Rs {formatNumber(entry.amount)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </main>
       </div>
     </div>
   )
