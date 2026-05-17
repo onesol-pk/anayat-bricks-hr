@@ -252,18 +252,18 @@ export default function SalePage() {
       }
 
       const { error: stockError } = await supabase
-        .from("stock_movements")
-        .insert([
-          {
-            movement_type: "out",
-            source_module: "sale",
-            brick_type,
-            quantity: qty,
-            reference_id: insertedSale.id,
-            notes: notes.trim() || `Sale to ${selectedCustomer.name}`,
-            movement_date: saleDate,
-          },
-        ])
+  .from("stock_movements")
+  .insert([
+    {
+      movement_type: "out",
+      source_module: "sale",
+      brick_type: brickType,
+      quantity: qty,
+      reference_id: insertedSale.id,
+      notes: notes.trim() || `Sale to ${selectedCustomer.name}`,
+      movement_date: saleDate,
+    },
+  ])
 
       if (stockError) {
         alert(
