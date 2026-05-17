@@ -174,7 +174,7 @@ export default function CustomerPaymentsPage() {
       return
     }
 
-    const newBalance = currentBalance + paymentAmount
+    const newBalance = currentBalance - paymentAmount
 
     try {
       const { error: paymentError } = await supabase
