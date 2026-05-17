@@ -4,23 +4,6 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@supabase/supabase-js"
-import {
-  LayoutDashboard,
-  Users,
-  ClipboardList,
-  BookOpen,
-  Wallet,
-  PlusCircle,
-  MinusCircle,
-  Receipt,
-  Landmark,
-  BarChart3,
-  Truck,
-  LogOut,
-  Menu,
-  X,
-  Boxes,
-} from "lucide-react"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -69,32 +52,30 @@ const LABOUR_SECTIONS = [
 const MENU_GROUPS = [
   {
     title: "Overview",
-    items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }],
+    items: [{ href: "/admin", label: "Dashboard" }],
   },
   {
     title: "Operations",
     items: [
-      { href: "/workers", label: "Workers", icon: Users },
-      { href: "/work-entry", label: "Work Entry", icon: ClipboardList },
-      { href: "/ledger", label: "Ledger", icon: BookOpen },
-      { href: "/sale", label: "Sale", icon: Truck },
+      { href: "/workers", label: "Workers" },
+      { href: "/work-entry", label: "Work Entry" },
+      { href: "/ledger", label: "Ledger" },
+      { href: "/sale", label: "Sale" },
     ],
   },
   {
     title: "Customers",
-    items: [
-      { href: "/customers", label: "Customers", icon: Users },
-    ],
+    items: [{ href: "/customers", label: "Customers" }],
   },
   {
     title: "Financials",
     items: [
-      { href: "/advances", label: "Advances", icon: Wallet },
-      { href: "/additions", label: "Additions", icon: PlusCircle },
-      { href: "/deductions", label: "Deductions", icon: MinusCircle },
-      { href: "/expenses", label: "Expenses", icon: Receipt },
-      { href: "/income", label: "Income", icon: Landmark },
-      { href: "/rokar", label: "Rokar", icon: BarChart3 },
+      { href: "/advances", label: "Advances" },
+      { href: "/additions", label: "Additions" },
+      { href: "/deductions", label: "Deductions" },
+      { href: "/expenses", label: "Expenses" },
+      { href: "/income", label: "Income" },
+      { href: "/rokar", label: "Rokar" },
     ],
   },
 ]
@@ -173,26 +154,17 @@ export default function AdminDashboard() {
           .order("date", { ascending: false })
           .order("created_at", { ascending: false }),
 
-        supabase.from("workers").select("id, name, worker_type"),
+        supabase.from("workers").select("id"),
       ])
 
       if (workEntriesRes.error) throw workEntriesRes.error
       if (workersRes.error) throw workersRes.error
 
-      const workersById = new Map(
-        (workersRes.data || []).map((worker) => [worker.id, worker])
-      )
-
       const nextReport = buildEmptyReport()
       const nextEntries = []
 
       ;(workEntriesRes.data || []).forEach((entry) => {
-        const worker = workersById.get(entry.worker_id)
-
-        const workerType = String(
-          entry.worker_type || worker?.worker_type || ""
-        ).toLowerCase()
-
+        const workerType = String(entry.worker_type || "").toLowerCase()
         const brickType = String(entry.brick_type || "").toLowerCase()
         const bricks = Number(entry.bricks) || 0
         const amount = Number(entry.total_amount) || 0
@@ -208,7 +180,6 @@ export default function AdminDashboard() {
           date: entry.date,
           created_at: entry.created_at,
           workerType,
-          workerName: worker?.name || "-",
           brickType,
           bricks,
           ratePer1000: Number(entry.rate_per_1000) || 0,
@@ -294,7 +265,7 @@ export default function AdminDashboard() {
           <Link href="/admin" className="block" onClick={() => setSidebarOpen(false)}>
             <div className="flex items-center gap-3">
               <div className="h-11 w-11 rounded-2xl bg-orange-500/15 border border-orange-500/20 flex items-center justify-center">
-                <Boxes className="h-5 w-5 text-orange-300" />
+                <span className="text-orange-300 text-xl">🧱</span>
               </div>
               <div>
                 <p className="text-sm uppercase tracking-[0.25em] text-gray-400">
@@ -315,7 +286,6 @@ export default function AdminDashboard() {
 
               <div className="space-y-1">
                 {group.items.map((item) => {
-                  const Icon = item.icon
                   const isActive =
                     item.href === "/admin"
                       ? pathname === "/admin"
@@ -326,14 +296,14 @@ export default function AdminDashboard() {
                       key={item.href}
                       href={item.href}
                       onClick={() => setSidebarOpen(false)}
-                      className={`flex items-center gap-3 rounded-2xl px-4 py-3 transition border ${
+                      className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-3 transition border ${
                         isActive
                           ? "bg-orange-500/15 border-orange-500/25 text-orange-200"
                           : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
                       }`}
                     >
-                      <Icon className="h-4 w-4" />
                       <span className="font-medium">{item.label}</span>
+                      <span className="text-xs text-gray-400">→</span>
                     </Link>
                   )
                 })}
@@ -347,7 +317,6 @@ export default function AdminDashboard() {
             onClick={handleLogout}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-500/15 border border-rose-500/20 px-4 py-3 font-semibold text-rose-200 hover:bg-rose-500/20 transition"
           >
-            <LogOut className="h-4 w-4" />
             Logout
           </button>
         </div>
@@ -357,14 +326,13 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#061226] text-white">
-      {/* MOBILE TOP BAR */}
       <div className="sticky top-0 z-40 border-b border-white/10 bg-[#061226]/95 backdrop-blur-xl lg:hidden">
         <div className="flex items-center justify-between px-4 py-4">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="rounded-xl bg-white/5 border border-white/10 p-3"
+            className="rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-xl leading-none"
           >
-            <Menu className="h-5 w-5" />
+            ☰
           </button>
 
           <div className="text-center">
@@ -376,21 +344,19 @@ export default function AdminDashboard() {
 
           <button
             onClick={handleLogout}
-            className="rounded-xl bg-white/5 border border-white/10 p-3"
+            className="rounded-xl bg-white/5 border border-white/10 px-4 py-3"
             title="Logout"
           >
-            <LogOut className="h-5 w-5" />
+            Logout
           </button>
         </div>
       </div>
 
       <div className="flex min-h-screen">
-        {/* DESKTOP SIDEBAR */}
         <aside className="hidden lg:flex lg:w-80 xl:w-88 border-r border-white/10 bg-[#081a2f]">
           <SidebarContent />
         </aside>
 
-        {/* MOBILE SIDEBAR DRAWER */}
         {sidebarOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
             <button
@@ -408,9 +374,9 @@ export default function AdminDashboard() {
                 </div>
                 <button
                   onClick={() => setSidebarOpen(false)}
-                  className="rounded-xl bg-white/5 border border-white/10 p-3"
+                  className="rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-xl leading-none"
                 >
-                  <X className="h-5 w-5" />
+                  ✕
                 </button>
               </div>
 
@@ -419,10 +385,8 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* MAIN CONTENT */}
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
           <div className="mx-auto max-w-7xl space-y-8">
-            {/* HEADER */}
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-orange-400 uppercase tracking-[0.35em] text-xs mb-3">
@@ -439,15 +403,13 @@ export default function AdminDashboard() {
               <div className="hidden lg:flex items-center gap-3">
                 <button
                   onClick={handleLogout}
-                  className="rounded-xl bg-white/5 px-5 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10 flex items-center gap-2"
+                  className="rounded-xl bg-white/5 px-5 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10"
                 >
-                  <LogOut className="h-4 w-4" />
                   Logout
                 </button>
               </div>
             </div>
 
-            {/* FILTER CARD */}
             <section className="relative overflow-hidden rounded-3xl border border-orange-500/20 bg-[#0f223a] shadow-2xl">
               <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-orange-500/25 via-orange-500/10 to-transparent" />
               <div className="relative p-6 md:p-7">
@@ -525,7 +487,6 @@ export default function AdminDashboard() {
               </div>
             </section>
 
-            {/* SUMMARY KPI */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
               <div className="rounded-3xl border border-orange-500/20 bg-[#0f223a] p-6 shadow-2xl">
                 <p className="text-gray-400">Entries</p>
@@ -556,7 +517,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* LABOUR BLOCKS */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               {LABOUR_SECTIONS.map((section) => {
                 const sectionTotals = report[section.key]
@@ -663,7 +623,6 @@ export default function AdminDashboard() {
               })}
             </div>
 
-            {/* STOCK BLOCK */}
             <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
               <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
                 <div>
@@ -702,7 +661,6 @@ export default function AdminDashboard() {
               </div>
             </section>
 
-            {/* RECENT ENTRIES */}
             <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
               <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
                 <div>
@@ -719,7 +677,6 @@ export default function AdminDashboard() {
                     <tr className="border-b border-gray-700 text-orange-400">
                       <th className="py-3 pr-4">Date</th>
                       <th className="py-3 pr-4">Labour</th>
-                      <th className="py-3 pr-4">Worker</th>
                       <th className="py-3 pr-4">Brick Type</th>
                       <th className="py-3 pr-4">Bricks</th>
                       <th className="py-3 pr-4">Rate / 1000</th>
@@ -730,13 +687,13 @@ export default function AdminDashboard() {
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td className="py-6 text-gray-400" colSpan={7}>
+                        <td className="py-6 text-gray-400" colSpan={6}>
                           Loading dashboard...
                         </td>
                       </tr>
                     ) : allEntries.length === 0 ? (
                       <tr>
-                        <td className="py-6 text-gray-400" colSpan={7}>
+                        <td className="py-6 text-gray-400" colSpan={6}>
                           No work entries found for the selected period.
                         </td>
                       </tr>
@@ -747,14 +704,11 @@ export default function AdminDashboard() {
                           <td className="py-3 pr-4 capitalize">
                             {entry.workerType || "-"}
                           </td>
-                          <td className="py-3 pr-4">{entry.workerName}</td>
                           <td className="py-3 pr-4 capitalize">
                             {entry.brickType || "-"}
                           </td>
                           <td className="py-3 pr-4">{formatNumber(entry.bricks)}</td>
-                          <td className="py-3 pr-4">
-                            Rs {formatNumber(entry.ratePer1000)}
-                          </td>
+                          <td className="py-3 pr-4">Rs {formatNumber(entry.ratePer1000)}</td>
                           <td className="py-3 pr-4 text-orange-300 font-semibold">
                             Rs {formatNumber(entry.amount)}
                           </td>
