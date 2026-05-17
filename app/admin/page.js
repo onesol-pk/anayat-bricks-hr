@@ -347,7 +347,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#061226] text-white">
-      {/* TOP BAR */}
       <div className="sticky top-0 z-40 border-b border-white/10 bg-[#061226]/95 backdrop-blur-xl">
         <div className="flex items-center justify-between px-4 py-4 md:px-6">
           <button
@@ -375,7 +374,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* DRAWER OVERLAY */}
       {drawerMounted && (
         <div className="fixed inset-0 z-50">
           <button
@@ -412,7 +410,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* MAIN CONTENT */}
       <main className="px-4 py-6 md:px-8 md:py-8">
         <div className="mx-auto max-w-7xl space-y-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -620,19 +617,11 @@ export default function AdminDashboard() {
                               Qty recorded for the selected period
                             </p>
 
-                            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                              <div className="rounded-xl bg-black/20 border border-white/10 p-3">
-                                <p className="text-gray-400">Total Amount</p>
-                                <p className="mt-1 font-semibold text-orange-200">
-                                  Rs {formatNumber(item.amount)}
-                                </p>
-                              </div>
-                              <div className="rounded-xl bg-black/20 border border-white/10 p-3">
-                                <p className="text-gray-400">Entries</p>
-                                <p className="mt-1 font-semibold text-white">
-                                  {item.entries}
-                                </p>
-                              </div>
+                            <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3">
+                              <p className="text-gray-400">Total Amount</p>
+                              <p className="mt-1 font-semibold text-orange-200 text-xl">
+                                Rs {formatNumber(item.amount)}
+                              </p>
                             </div>
                           </div>
                         )
