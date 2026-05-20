@@ -173,7 +173,7 @@ export default function DeductionsPage() {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-orange-400 uppercase tracking-[0.35em] text-xs mb-3">
-                Kiln Operations Center
+                Anayat Sons Bricks
               </p>
               <h1 className="text-4xl md:text-5xl font-bold text-white">
                 Deductions Management
