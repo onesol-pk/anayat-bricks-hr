@@ -69,7 +69,7 @@ export default function WorkEntryPage() {
   const workerType = String(selectedWorker?.worker_type || "").toLowerCase()
   const brickOptions = BRICK_OPTIONS[workerType] || []
 
-  const defaultRate = Number(selectedWorker?.default_rate || 0)
+  const defaultRate = 0
 
   useEffect(() => {
     if (!selectedWorkerId && workers.length > 0) {
@@ -91,7 +91,7 @@ export default function WorkEntryPage() {
       const [workersRes, entriesRes] = await Promise.all([
         supabase
           .from("workers")
-          .select("id, name, worker_type, default_rate, status")
+          .select("id, name, worker_type, status")
           .eq("status", "active")
           .order("name", { ascending: true }),
 
