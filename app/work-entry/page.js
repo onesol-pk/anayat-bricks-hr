@@ -1,14 +1,19 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { supabase } from "../../lib/supabase"
+import { useEffect, useMemo, useState } from "react"
+import { createClient } from "@supabase/supabase-js"
 
-const BRICK_TYPES = {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
+
+const BRICK_OPTIONS = {
   patheer: ["gutka", "tile", "special"],
   bharai: ["gutka", "tile", "special"],
-  nakasi: ["awal", "dome", "tirak", "tile", "special", "Kachi kali"],
-  loading: ["awal", "dome", "tirak", "tile", "special", "Kachi kali"],
+  nakasi: ["awal", "dome", "tirak", "tile", "special", "kachi kali"],
+  loading: ["awal", "dome", "tirak", "tile", "special", "kachi kali"],
 }
 
 function getTodayDateInput() {
@@ -17,10 +22,11 @@ function getTodayDateInput() {
   return local.toISOString().split("T")[0]
 }
 
-function formatNumber(value) {
+function formatMoney(value) {
+  const number = Number(value) || 0
   return new Intl.NumberFormat("en-PK", {
     maximumFractionDigits: 0,
-  }).format(Math.round(Number(value) || 0))
+  }).format(Math.round(number))
 }
 
 function titleCase(value) {
@@ -30,135 +36,213 @@ function titleCase(value) {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+function makeRow(brickType = "gutka", rate = 0) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    brickType,
+    quantity: "",
+    rate: String(rate || ""),
+  }
+}
+
+function getWorkerTypeLabel(workerType) {
+  return titleCase(workerType || "-")
+}
+
 export default function WorkEntryPage() {
   const [workers, setWorkers] = useState([])
-  const [entries, setEntries] = useState([])
-
-  const [workerId, setWorkerId] = useState("")
-  const [date, setDate] = useState(getTodayDateInput())
-  const [brickType, setBrickType] = useState("")
-  const [bricks, setBricks] = useState("")
-  const [ratePer1000, setRatePer1000] = useState("")
+  const [selectedWorkerId, setSelectedWorkerId] = useState("")
+  const [entryDate, setEntryDate] = useState(getTodayDateInput())
+  const [rows, setRows] = useState([makeRow()])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [recentEntries, setRecentEntries] = useState([])
 
   useEffect(() => {
-    fetchWorkers()
-    fetchEntries()
+    fetchWorkersAndEntries()
   }, [])
 
-  function getWeekStart(selectedDate) {
-    const d = new Date(selectedDate)
-    const day = d.getDay()
-
-    // Friday = week start
-    let diff
-    if (day >= 5) {
-      diff = day - 5
-    } else {
-      diff = day + 2
-    }
-
-    d.setDate(d.getDate() - diff)
-    return d.toISOString().split("T")[0]
-  }
-
-  async function fetchWorkers() {
-    const { data, error } = await supabase
-      .from("workers")
-      .select("*")
-      .eq("status", "active")
-      .order("name")
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-
-    setWorkers(data || [])
-  }
-
-  async function fetchEntries() {
-    const { data, error } = await supabase
-      .from("work_entries")
-      .select(`
-        *,
-        workers(name, worker_type)
-      `)
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false })
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-
-    setEntries(data || [])
-  }
-
   const selectedWorker = useMemo(() => {
-    return workers.find((w) => w.id === workerId)
-  }, [workerId, workers])
+    return workers.find((worker) => String(worker.id) === String(selectedWorkerId))
+  }, [workers, selectedWorkerId])
 
   const workerType = String(selectedWorker?.worker_type || "").toLowerCase()
+  const brickOptions = BRICK_OPTIONS[workerType] || []
 
-  const availableBrickTypes = BRICK_TYPES[workerType] || []
+  const defaultRate = Number(selectedWorker?.default_rate || 0)
 
-  const totalAmount = useMemo(() => {
-    return ((Number(bricks) || 0) / 1000) * (Number(ratePer1000) || 0)
-  }, [bricks, ratePer1000])
+  useEffect(() => {
+    if (!selectedWorkerId && workers.length > 0) {
+      setSelectedWorkerId(String(workers[0].id))
+      return
+    }
+
+    if (selectedWorkerId && selectedWorker) {
+      const firstBrick = brickOptions[0] || "gutka"
+      setRows([makeRow(firstBrick, defaultRate)])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWorkerId, selectedWorker])
+
+  async function fetchWorkersAndEntries() {
+    setLoading(true)
+
+    try {
+      const [workersRes, entriesRes] = await Promise.all([
+        supabase
+          .from("workers")
+          .select("id, name, worker_type, default_rate, status")
+          .eq("status", "active")
+          .order("name", { ascending: true }),
+
+        supabase
+          .from("work_entries")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(50),
+      ])
+
+      if (workersRes.error) throw workersRes.error
+      if (entriesRes.error) throw entriesRes.error
+
+      setWorkers(workersRes.data || [])
+      setRecentEntries(entriesRes.data || [])
+    } catch (error) {
+      alert(error.message || "Failed to load work entry page")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleWorkerChange(value) {
+    setSelectedWorkerId(value)
+  }
+
+  function handleRowChange(rowId, field, value) {
+    setRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row
+        return { ...row, [field]: value }
+      })
+    )
+  }
+
+  function addRow() {
+    const firstBrick = brickOptions[0] || "gutka"
+    setRows((prev) => [...prev, makeRow(firstBrick, defaultRate)])
+  }
+
+  function removeRow(rowId) {
+    setRows((prev) => {
+      if (prev.length === 1) return prev
+      return prev.filter((row) => row.id !== rowId)
+    })
+  }
+
+  const totalBricks = useMemo(() => {
+    return rows.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0)
+  }, [rows])
+
+  const totalLabour = useMemo(() => {
+    return rows.reduce((sum, row) => {
+      const qty = Number(row.quantity) || 0
+      const rate = Number(row.rate) || 0
+      return sum + (qty / 1000) * rate
+    }, 0)
+  }, [rows])
 
   async function handleSubmit(e) {
     e.preventDefault()
 
-    if (!workerId || !date || !brickType || !bricks || !ratePer1000) {
-      alert("Please fill all required fields")
+    if (!selectedWorker) {
+      alert("Please select a worker")
       return
     }
 
-    const weekStart = getWeekStart(date)
-
-    const { error } = await supabase.from("work_entries").insert([
-      {
-        worker_id: workerId,
-        worker_type: workerType,
-        brick_type: brickType,
-        date,
-        bricks: Number(bricks),
-        rate_per_1000: Number(ratePer1000),
-        total_amount: Number(totalAmount),
-        week_start: weekStart,
-      },
-    ])
-
-    if (error) {
-      alert(error.message)
+    if (!entryDate) {
+      alert("Please select a date")
       return
     }
 
-    alert("Daily work entry added successfully")
+    if (!rows.length) {
+      alert("Please add at least one row")
+      return
+    }
 
-    setWorkerId("")
-    setDate(getTodayDateInput())
-    setBrickType("")
-    setBricks("")
-    setRatePer1000("")
-    fetchEntries()
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i]
+      const qty = Number(row.quantity) || 0
+      const rate = Number(row.rate) || 0
+
+      if (!row.brickType) {
+        alert(`Please select brick type in row ${i + 1}`)
+        return
+      }
+
+      if (qty <= 0) {
+        alert(`Please enter quantity in row ${i + 1}`)
+        return
+      }
+
+      if (rate <= 0) {
+        alert(`Please enter rate in row ${i + 1}`)
+        return
+      }
+    }
+
+    const payload = rows.map((row) => {
+      const qty = Number(row.quantity) || 0
+      const rate = Number(row.rate) || 0
+
+      return {
+        worker_id: Number(selectedWorker.id),
+        worker_type: selectedWorker.worker_type,
+        date: entryDate,
+        brick_type: String(row.brickType).toLowerCase(),
+        bricks: qty,
+        rate_per_1000: rate,
+        total_amount: (qty / 1000) * rate,
+      }
+    })
+
+    setSaving(true)
+
+    try {
+      const { error } = await supabase.from("work_entries").insert(payload)
+
+      if (error) {
+        alert(error.message)
+        return
+      }
+
+      alert("Work entries saved successfully")
+
+      const firstBrick = brickOptions[0] || "gutka"
+      setRows([makeRow(firstBrick, defaultRate)])
+      setEntryDate(getTodayDateInput())
+
+      await fetchWorkersAndEntries()
+    } catch (error) {
+      alert(error.message || "Failed to save entries")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div className="min-h-screen bg-[#061226] text-white">
-      <div className="px-8 pt-8 pb-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="px-4 py-4 md:px-8 md:py-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-orange-400 uppercase tracking-[0.35em] text-xs mb-3">
-                Anayat Sons Bricks
+                Kiln Operations Center
               </p>
               <h1 className="text-4xl md:text-5xl font-bold text-white">
-                Daily Work Entry
+                Work Entry
               </h1>
               <p className="text-gray-400 mt-3 max-w-2xl">
-                Record production by worker, labour stage, and brick type.
-                Each entry stores its own rate and total amount for accurate ledgering.
+                Add multiple brick rows for one worker in a single save.
               </p>
             </div>
 
@@ -171,22 +255,51 @@ export default function WorkEntryPage() {
         </div>
       </div>
 
-      <div className="px-8 pb-10">
-        <div className="max-w-7xl mx-auto space-y-8">
-          {/* FORM */}
+      <div className="px-4 pb-10 md:px-8">
+        <div className="mx-auto max-w-7xl space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <div className="rounded-3xl border border-orange-500/20 bg-[#0f223a] p-6 shadow-2xl">
+              <p className="text-gray-400">Rows in Form</p>
+              <p className="mt-2 text-3xl font-bold text-orange-300">
+                {formatMoney(rows.length)}
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-emerald-500/20 bg-[#0f223a] p-6 shadow-2xl">
+              <p className="text-gray-400">Total Bricks</p>
+              <p className="mt-2 text-3xl font-bold text-emerald-300">
+                {formatMoney(totalBricks)}
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-sky-500/20 bg-[#0f223a] p-6 shadow-2xl">
+              <p className="text-gray-400">Estimated Labour</p>
+              <p className="mt-2 text-3xl font-bold text-sky-300">
+                Rs {formatMoney(totalLabour)}
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-[#0f223a] p-6 shadow-2xl">
+              <p className="text-gray-400">Worker Type</p>
+              <p className="mt-2 text-3xl font-bold text-white">
+                {getWorkerTypeLabel(workerType)}
+              </p>
+            </div>
+          </div>
+
           <section className="relative overflow-hidden rounded-3xl border border-orange-500/20 bg-[#0f223a] shadow-2xl">
             <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-orange-500/25 via-orange-500/10 to-transparent" />
             <div className="relative p-6 md:p-7">
               <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-6">
                 <div>
                   <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold bg-orange-500/15 text-orange-200">
-                    Production Entry
+                    Multi Entry Form
                   </p>
                   <h2 className="text-2xl md:text-3xl font-bold mt-3">
-                    Record Daily Production
+                    Add Worker Entries
                   </h2>
                   <p className="text-gray-400 mt-1">
-                    Select worker, brick type, quantity, and rate for the entry.
+                    One worker, one date, many brick rows, one save.
                   </p>
                 </div>
 
@@ -194,127 +307,155 @@ export default function WorkEntryPage() {
                   <p className="text-xs uppercase tracking-[0.25em] text-gray-500">
                     Entry date
                   </p>
-                  <p className="text-sm text-gray-200 mt-1">{date}</p>
+                  <p className="text-sm text-gray-200 mt-1">{entryDate}</p>
                 </div>
               </div>
 
-              <form
-                onSubmit={handleSubmit}
-                className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
-              >
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    Worker
-                  </label>
-                  <select
-                    value={workerId}
-                    onChange={(e) => {
-                      setWorkerId(e.target.value)
-                      setBrickType("")
-                    }}
-                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                    required
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                      Worker
+                    </label>
+                    <select
+                      value={selectedWorkerId}
+                      onChange={(e) => handleWorkerChange(e.target.value)}
+                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                      required
+                    >
+                      <option value="">Select Worker</option>
+                      {workers.map((worker) => (
+                        <option key={worker.id} value={worker.id}>
+                          {titleCase(worker.worker_type)} - {worker.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={entryDate}
+                      onChange={(e) => setEntryDate(e.target.value)}
+                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {rows.map((row, index) => (
+                    <div
+                      key={row.id}
+                      className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-4">
+                        <h3 className="font-semibold text-white">
+                          Row {index + 1}
+                        </h3>
+
+                        <button
+                          type="button"
+                          onClick={() => removeRow(row.id)}
+                          className="rounded-xl bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/20 transition border border-rose-500/20"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                            Brick Type
+                          </label>
+                          <select
+                            value={row.brickType}
+                            onChange={(e) =>
+                              handleRowChange(row.id, "brickType", e.target.value)
+                            }
+                            className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                          >
+                            {brickOptions.map((brick) => (
+                              <option key={brick} value={brick}>
+                                {titleCase(brick)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                            Quantity
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={row.quantity}
+                            onChange={(e) =>
+                              handleRowChange(row.id, "quantity", e.target.value)
+                            }
+                            className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                            placeholder="Enter quantity"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                            Rate / 1000
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={row.rate}
+                            onChange={(e) =>
+                              handleRowChange(row.id, "rate", e.target.value)
+                            }
+                            className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                            placeholder="Enter rate"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3">
+                        <p className="text-gray-400 text-sm">Row Total</p>
+                        <p className="mt-1 font-semibold text-orange-200 text-xl">
+                          Rs {formatMoney((Number(row.quantity) || 0) / 1000 * (Number(row.rate) || 0))}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    className="rounded-xl bg-white/5 px-6 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10"
                   >
-                    <option value="">Select Worker</option>
-                    {workers.map((worker) => (
-                      <option key={worker.id} value={worker.id}>
-                        {titleCase(worker.worker_type)} - {worker.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    Add Row
+                  </button>
 
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    Brick Type
-                  </label>
-                  <select
-                    value={brickType}
-                    onChange={(e) => setBrickType(e.target.value)}
-                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500 disabled:opacity-50"
-                    required
-                    disabled={!workerType}
+                  <button
+                    type="submit"
+                    disabled={saving || loading}
+                    className="rounded-xl bg-orange-500 px-6 py-3 font-semibold text-white hover:opacity-90 transition disabled:opacity-60"
                   >
-                    <option value="">Select Brick Type</option>
-                    {availableBrickTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {titleCase(type)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    Bricks
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Enter bricks"
-                    value={bricks}
-                    onChange={(e) => setBricks(e.target.value)}
-                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                    Rate / 1000
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Enter rate"
-                    value={ratePer1000}
-                    onChange={(e) => setRatePer1000(e.target.value)}
-                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                    required
-                  />
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-gray-400">
-                    Total Amount
-                  </p>
-                  <p className="mt-3 text-3xl font-bold text-orange-300">
-                    Rs {formatNumber(totalAmount)}
-                  </p>
-                  <p className="mt-2 text-sm text-gray-400">
-                    Calculated automatically from bricks and rate.
-                  </p>
-                </div>
-
-                <div className="md:col-span-2 xl:col-span-3 pt-1">
-                  <button className="w-full rounded-xl bg-orange-500 px-5 py-3 font-semibold text-white hover:opacity-90 transition">
-                    Save Entry
+                    {saving ? "Saving..." : "Save All Entries"}
                   </button>
                 </div>
               </form>
             </div>
           </section>
 
-          {/* HISTORY */}
           <section className="bg-[#0f223a] border border-white/10 rounded-3xl p-6 md:p-7 shadow-2xl">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-2xl font-bold">Production History</h2>
+                <h2 className="text-2xl font-bold">Recent Work Entries</h2>
                 <p className="text-gray-400 mt-1">
-                  Latest entries recorded in the system.
+                  Latest saved entries across all workers.
                 </p>
               </div>
             </div>
@@ -323,10 +464,10 @@ export default function WorkEntryPage() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-gray-700 text-orange-400">
-                    <th className="py-3 pr-4">Worker Type</th>
-                    <th className="py-3 pr-4">Worker</th>
-                    <th className="py-3 pr-4">Brick Type</th>
                     <th className="py-3 pr-4">Date</th>
+                    <th className="py-3 pr-4">Worker</th>
+                    <th className="py-3 pr-4">Type</th>
+                    <th className="py-3 pr-4">Brick</th>
                     <th className="py-3 pr-4">Bricks</th>
                     <th className="py-3 pr-4">Rate</th>
                     <th className="py-3 pr-4">Total</th>
@@ -334,34 +475,48 @@ export default function WorkEntryPage() {
                 </thead>
 
                 <tbody>
-                  {entries.length === 0 ? (
+                  {loading ? (
                     <tr>
                       <td className="py-6 text-gray-400" colSpan={7}>
-                        No work entries found.
+                        Loading work entries...
+                      </td>
+                    </tr>
+                  ) : recentEntries.length === 0 ? (
+                    <tr>
+                      <td className="py-6 text-gray-400" colSpan={7}>
+                        No work entries recorded yet.
                       </td>
                     </tr>
                   ) : (
-                    entries.map((entry) => (
-                      <tr key={entry.id} className="border-b border-gray-800">
-                        <td className="py-3 pr-4 capitalize">
-                          {entry.worker_type || "-"}
-                        </td>
-                        <td className="py-3 pr-4">
-                          {entry.workers?.name || "-"}
-                        </td>
-                        <td className="py-3 pr-4 capitalize">
-                          {entry.brick_type || "-"}
-                        </td>
-                        <td className="py-3 pr-4">{entry.date}</td>
-                        <td className="py-3 pr-4">{formatNumber(entry.bricks)}</td>
-                        <td className="py-3 pr-4">
-                          Rs {formatNumber(entry.rate_per_1000)}
-                        </td>
-                        <td className="py-3 pr-4 text-orange-300 font-semibold">
-                          Rs {formatNumber(entry.total_amount)}
-                        </td>
-                      </tr>
-                    ))
+                    recentEntries.map((item) => {
+                      const worker = workers.find(
+                        (w) => Number(w.id) === Number(item.worker_id)
+                      )
+
+                      return (
+                        <tr key={item.id} className="border-b border-gray-800">
+                          <td className="py-3 pr-4">{item.date}</td>
+                          <td className="py-3 pr-4">
+                            {worker?.name || "-"}
+                          </td>
+                          <td className="py-3 pr-4 capitalize">
+                            {titleCase(item.worker_type)}
+                          </td>
+                          <td className="py-3 pr-4 capitalize">
+                            {titleCase(item.brick_type)}
+                          </td>
+                          <td className="py-3 pr-4">
+                            {formatMoney(item.bricks)}
+                          </td>
+                          <td className="py-3 pr-4">
+                            Rs {formatMoney(item.rate_per_1000)}
+                          </td>
+                          <td className="py-3 pr-4 text-orange-300 font-semibold">
+                            Rs {formatMoney(item.total_amount)}
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
