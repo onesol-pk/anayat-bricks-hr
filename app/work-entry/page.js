@@ -22,6 +22,15 @@ function getTodayDateInput() {
   return local.toISOString().split("T")[0]
 }
 
+function getWeekStartInput(dateStr) {
+  const date = new Date(`${dateStr}T00:00:00`)
+  const day = date.getDay() // 0 = Sunday ... 5 = Friday
+  const diff = (day - 5 + 7) % 7
+  date.setDate(date.getDate() - diff)
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return local.toISOString().split("T")[0]
+}
+
 function formatMoney(value) {
   const number = Number(value) || 0
   return new Intl.NumberFormat("en-PK", {
@@ -36,17 +45,13 @@ function titleCase(value) {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function makeRow(brickType = "gutka", rate = 0) {
+function makeRow(brickType = "gutka") {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     brickType,
     quantity: "",
-    rate: String(rate || ""),
+    rate: "",
   }
-}
-
-function getWorkerTypeLabel(workerType) {
-  return titleCase(workerType || "-")
 }
 
 export default function WorkEntryPage() {
@@ -69,17 +74,15 @@ export default function WorkEntryPage() {
   const workerType = String(selectedWorker?.worker_type || "").toLowerCase()
   const brickOptions = BRICK_OPTIONS[workerType] || []
 
-  const defaultRate = 0
-
   useEffect(() => {
     if (!selectedWorkerId && workers.length > 0) {
       setSelectedWorkerId(String(workers[0].id))
       return
     }
 
-    if (selectedWorkerId && selectedWorker) {
+    if (selectedWorker) {
       const firstBrick = brickOptions[0] || "gutka"
-      setRows([makeRow(firstBrick, defaultRate)])
+      setRows([makeRow(firstBrick)])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWorkerId, selectedWorker])
@@ -89,28 +92,29 @@ export default function WorkEntryPage() {
 
     try {
       const [workersRes, entriesRes] = await Promise.all([
-  supabase
-    .from("workers")
-    .select("id, name, worker_type, status")
-    .eq("status", "active")
-    .order("name", { ascending: true }),
+        supabase
+          .from("workers")
+          .select("id, name, worker_type, status")
+          .eq("status", "active")
+          .order("name", { ascending: true }),
 
-  supabase
-    .from("work_entries")
-    .select(`
-      id,
-      worker_id,
-      worker_type,
-      date,
-      brick_type,
-      bricks,
-      rate_per_1000,
-      total_amount,
-      worker:workers(name)
-    `)
-    .order("created_at", { ascending: false })
-    .limit(50),
-])
+        supabase
+          .from("work_entries")
+          .select(`
+            id,
+            worker_id,
+            worker_name,
+            worker_type,
+            date,
+            brick_type,
+            bricks,
+            rate_per_1000,
+            total_amount,
+            worker:workers(name)
+          `)
+          .order("created_at", { ascending: false })
+          .limit(50),
+      ])
 
       if (workersRes.error) throw workersRes.error
       if (entriesRes.error) throw entriesRes.error
@@ -139,7 +143,7 @@ export default function WorkEntryPage() {
 
   function addRow() {
     const firstBrick = brickOptions[0] || "gutka"
-    setRows((prev) => [...prev, makeRow(firstBrick, defaultRate)])
+    setRows((prev) => [...prev, makeRow(firstBrick)])
   }
 
   function removeRow(rowId) {
@@ -174,46 +178,42 @@ export default function WorkEntryPage() {
       return
     }
 
-    if (!rows.length) {
-      alert("Please add at least one row")
+    const validRows = rows
+      .map((row) => ({
+        brickType: String(row.brickType || "").toLowerCase(),
+        quantity: Number(row.quantity),
+        rate: Number(row.rate),
+      }))
+      .filter(
+        (row) =>
+          row.brickType &&
+          Number.isFinite(row.quantity) &&
+          row.quantity > 0 &&
+          Number.isFinite(row.rate) &&
+          row.rate > 0
+      )
+
+    if (validRows.length === 0) {
+      alert("Please add at least one complete row with brick type, quantity, and rate")
       return
     }
 
-    for (let i = 0; i < rows.length; i += 1) {
-      const row = rows[i]
-      const qty = Number(row.quantity) || 0
-      const rate = Number(row.rate) || 0
+    const payload = validRows.map((row) => ({
+      worker_id: selectedWorker.id,
+      worker_name: selectedWorker.name,
+      worker_type: String(selectedWorker.worker_type || "").toLowerCase(),
+      date: entryDate,
+      week_start: getWeekStartInput(entryDate),
+      brick_type: row.brickType,
+      bricks: row.quantity,
+      rate_per_1000: row.rate,
+      total_amount: (row.quantity / 1000) * row.rate,
+    }))
 
-      if (!row.brickType) {
-        alert(`Please select brick type in row ${i + 1}`)
-        return
-      }
-
-      if (qty <= 0) {
-        alert(`Please enter quantity in row ${i + 1}`)
-        return
-      }
-
-      if (rate <= 0) {
-        alert(`Please enter rate in row ${i + 1}`)
-        return
-      }
+    if (payload.some((item) => !item.worker_id || !item.worker_name)) {
+      alert("Worker details are missing, cannot save entry")
+      return
     }
-
-    const payload = rows.map((row) => {
-      const qty = Number(row.quantity) || 0
-      const rate = Number(row.rate) || 0
-
-      return {
-        worker_id: Number(selectedWorker.id),
-        worker_type: selectedWorker.worker_type,
-        date: entryDate,
-        brick_type: String(row.brickType).toLowerCase(),
-        bricks: qty,
-        rate_per_1000: rate,
-        total_amount: (qty / 1000) * rate,
-      }
-    })
 
     setSaving(true)
 
@@ -228,7 +228,7 @@ export default function WorkEntryPage() {
       alert("Work entries saved successfully")
 
       const firstBrick = brickOptions[0] || "gutka"
-      setRows([makeRow(firstBrick, defaultRate)])
+      setRows([makeRow(firstBrick)])
       setEntryDate(getTodayDateInput())
 
       await fetchWorkersAndEntries()
@@ -292,7 +292,7 @@ export default function WorkEntryPage() {
             <div className="rounded-3xl border border-white/10 bg-[#0f223a] p-6 shadow-2xl">
               <p className="text-gray-400">Worker Type</p>
               <p className="mt-2 text-3xl font-bold text-white">
-                {getWorkerTypeLabel(workerType)}
+                {titleCase(workerType || "-")}
               </p>
             </div>
           </div>
@@ -432,7 +432,11 @@ export default function WorkEntryPage() {
                       <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3">
                         <p className="text-gray-400 text-sm">Row Total</p>
                         <p className="mt-1 font-semibold text-orange-200 text-xl">
-                          Rs {formatMoney((Number(row.quantity) || 0) / 1000 * (Number(row.rate) || 0))}
+                          Rs{" "}
+                          {formatMoney(
+                            ((Number(row.quantity) || 0) / 1000) *
+                              (Number(row.rate) || 0)
+                          )}
                         </p>
                       </div>
                     </div>
@@ -498,37 +502,29 @@ export default function WorkEntryPage() {
                       </td>
                     </tr>
                   ) : (
-                    recentEntries.map((item) => {
-                  return (
-                    <tr key={item.id} className="border-b border-gray-800">
-                      <td className="py-3 pr-4">{item.date}</td>
-                
-                      <td className="py-3 pr-4">
-                        {item.worker?.name || "-"}
-                      </td>
-                
-                      <td className="py-3 pr-4 capitalize">
-                        {titleCase(item.worker_type)}
-                      </td>
-                
-                      <td className="py-3 pr-4 capitalize">
-                        {titleCase(item.brick_type)}
-                      </td>
-                
-                      <td className="py-3 pr-4">
-                        {formatMoney(item.bricks)}
-                      </td>
-                
-                      <td className="py-3 pr-4">
-                        Rs {formatMoney(item.rate_per_1000)}
-                      </td>
-                
-                      <td className="py-3 pr-4 text-orange-300 font-semibold">
-                        Rs {formatMoney(item.total_amount)}
-                      </td>
-                    </tr>
-                  )
-                })
+                    recentEntries.map((item) => (
+                      <tr key={item.id} className="border-b border-gray-800">
+                        <td className="py-3 pr-4">{item.date}</td>
+                        <td className="py-3 pr-4">
+                          {item.worker_name || item.worker?.name || "-"}
+                        </td>
+                        <td className="py-3 pr-4 capitalize">
+                          {titleCase(item.worker_type)}
+                        </td>
+                        <td className="py-3 pr-4 capitalize">
+                          {titleCase(item.brick_type)}
+                        </td>
+                        <td className="py-3 pr-4">
+                          {formatMoney(item.bricks)}
+                        </td>
+                        <td className="py-3 pr-4">
+                          Rs {formatMoney(item.rate_per_1000)}
+                        </td>
+                        <td className="py-3 pr-4 text-orange-300 font-semibold">
+                          Rs {formatMoney(item.total_amount)}
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
