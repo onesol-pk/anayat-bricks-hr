@@ -89,18 +89,28 @@ export default function WorkEntryPage() {
 
     try {
       const [workersRes, entriesRes] = await Promise.all([
-        supabase
-          .from("workers")
-          .select("id, name, worker_type, status")
-          .eq("status", "active")
-          .order("name", { ascending: true }),
+  supabase
+    .from("workers")
+    .select("id, name, worker_type, status")
+    .eq("status", "active")
+    .order("name", { ascending: true }),
 
-        supabase
-          .from("work_entries")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(50),
-      ])
+  supabase
+    .from("work_entries")
+    .select(`
+      id,
+      worker_id,
+      worker_type,
+      date,
+      brick_type,
+      bricks,
+      rate_per_1000,
+      total_amount,
+      worker:workers(name)
+    `)
+    .order("created_at", { ascending: false })
+    .limit(50),
+])
 
       if (workersRes.error) throw workersRes.error
       if (entriesRes.error) throw entriesRes.error
@@ -489,34 +499,36 @@ export default function WorkEntryPage() {
                     </tr>
                   ) : (
                     recentEntries.map((item) => {
-                      const worker = workers.find(
-                        (w) => Number(w.id) === Number(item.worker_id)
-                      )
-
-                      return (
-                        <tr key={item.id} className="border-b border-gray-800">
-                          <td className="py-3 pr-4">{item.date}</td>
-                          <td className="py-3 pr-4">
-                            {worker?.name || "-"}
-                          </td>
-                          <td className="py-3 pr-4 capitalize">
-                            {titleCase(item.worker_type)}
-                          </td>
-                          <td className="py-3 pr-4 capitalize">
-                            {titleCase(item.brick_type)}
-                          </td>
-                          <td className="py-3 pr-4">
-                            {formatMoney(item.bricks)}
-                          </td>
-                          <td className="py-3 pr-4">
-                            Rs {formatMoney(item.rate_per_1000)}
-                          </td>
-                          <td className="py-3 pr-4 text-orange-300 font-semibold">
-                            Rs {formatMoney(item.total_amount)}
-                          </td>
-                        </tr>
-                      )
-                    })
+                  return (
+                    <tr key={item.id} className="border-b border-gray-800">
+                      <td className="py-3 pr-4">{item.date}</td>
+                
+                      <td className="py-3 pr-4">
+                        {item.worker?.name || "-"}
+                      </td>
+                
+                      <td className="py-3 pr-4 capitalize">
+                        {titleCase(item.worker_type)}
+                      </td>
+                
+                      <td className="py-3 pr-4 capitalize">
+                        {titleCase(item.brick_type)}
+                      </td>
+                
+                      <td className="py-3 pr-4">
+                        {formatMoney(item.bricks)}
+                      </td>
+                
+                      <td className="py-3 pr-4">
+                        Rs {formatMoney(item.rate_per_1000)}
+                      </td>
+                
+                      <td className="py-3 pr-4 text-orange-300 font-semibold">
+                        Rs {formatMoney(item.total_amount)}
+                      </td>
+                    </tr>
+                  )
+                })
                   )}
                 </tbody>
               </table>
