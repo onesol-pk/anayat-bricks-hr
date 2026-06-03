@@ -84,6 +84,14 @@ function calculateStockFromMovements(movements = []) {
   return stock
 }
 
+function makeRow(brickType = "awal") {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    brickType,
+    quantity: "",
+  }
+}
+
 export default function SalePage() {
   const [customers, setCustomers] = useState([])
   const [sales, setSales] = useState([])
@@ -91,14 +99,13 @@ export default function SalePage() {
   const [loading, setLoading] = useState(true)
 
   const [customerId, setCustomerId] = useState("")
-  const [brickType, setBrickType] = useState("awal")
-  const [quantity, setQuantity] = useState("")
+  const [saleDate, setSaleDate] = useState(getTodayDateInput())
   const [rate, setRate] = useState("")
   const [paidAmount, setPaidAmount] = useState("")
   const [driverName, setDriverName] = useState("")
   const [tractorType, setTractorType] = useState("russi")
   const [notes, setNotes] = useState("")
-  const [saleDate, setSaleDate] = useState(getTodayDateInput())
+  const [lineItems, setLineItems] = useState([makeRow("awal")])
 
   const [savedSale, setSavedSale] = useState(null)
 
@@ -123,17 +130,33 @@ export default function SalePage() {
     selectedCustomer?.current_balance ?? selectedCustomer?.opening_balance ?? 0
   ) || 0
 
-  const totalAmount = useMemo(() => {
-    return (Number(quantity) || 0) * (Number(rate) || 0)
-  }, [quantity, rate])
+  const sharedRate = Number(rate) || 0
 
-  const effectivePaidAmount = isCashSale
-    ? totalAmount
-    : Number(paidAmount) || 0
+  const validLineItems = useMemo(() => {
+    return lineItems
+      .map((row) => ({
+        id: row.id,
+        brickType: String(row.brickType || "").toLowerCase(),
+        quantity: Number(row.quantity) || 0,
+      }))
+      .filter((row) => row.brickType && row.quantity > 0)
+  }, [lineItems])
+
+  const grandTotal = useMemo(() => {
+    return validLineItems.reduce((sum, row) => {
+      return sum + (row.quantity / 1000) * sharedRate
+    }, 0)
+  }, [validLineItems, sharedRate])
+
+  const totalQuantity = useMemo(() => {
+    return validLineItems.reduce((sum, row) => sum + row.quantity, 0)
+  }, [validLineItems])
+
+  const effectivePaidAmount = isCashSale ? grandTotal : Number(paidAmount) || 0
 
   const currentBalanceAfter = isCashSale
     ? previousBalance
-    : previousBalance + totalAmount - effectivePaidAmount
+    : previousBalance + grandTotal - effectivePaidAmount
 
   const stockMap = useMemo(() => {
     return calculateStockFromMovements(stockMovements)
@@ -143,23 +166,20 @@ export default function SalePage() {
     return Object.values(stockMap).reduce((sum, value) => sum + value, 0)
   }, [stockMap])
 
-  const liveReceipt = {
-    id: null,
+  const receiptData = savedSale || {
     customer_name: selectedCustomer?.name || "",
     customer_type: customerType,
-    brick_type: brickType,
-    quantity: Number(quantity) || 0,
-    rate: Number(rate) || 0,
-    total_amount: totalAmount,
+    sale_date: saleDate,
+    rate: sharedRate,
+    total_quantity: totalQuantity,
+    total_amount: grandTotal,
     paid_amount: effectivePaidAmount,
     balance_after: currentBalanceAfter,
     driver_name: driverName.trim(),
     tractor_type: tractorType,
     notes: notes.trim(),
-    sale_date: saleDate,
+    line_items: validLineItems,
   }
-
-  const receipt = savedSale || liveReceipt
 
   async function fetchData() {
     setLoading(true)
@@ -199,18 +219,38 @@ export default function SalePage() {
   }
 
   function resetForm(keepCustomer = true) {
-    setBrickType("awal")
-    setQuantity("")
+    setSaleDate(getTodayDateInput())
     setRate("")
     setPaidAmount("")
     setDriverName("")
     setTractorType("russi")
     setNotes("")
-    setSaleDate(getTodayDateInput())
+    setLineItems([makeRow("awal")])
+    setSavedSale(null)
 
     if (!keepCustomer) {
       setCustomerId("")
     }
+  }
+
+  function handleAddRow() {
+    setLineItems((prev) => [...prev, makeRow("awal")])
+  }
+
+  function handleRemoveRow(rowId) {
+    setLineItems((prev) => {
+      if (prev.length === 1) return prev
+      return prev.filter((row) => row.id !== rowId)
+    })
+  }
+
+  function handleRowChange(rowId, field, value) {
+    setLineItems((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row
+        return { ...row, [field]: value }
+      })
+    )
   }
 
   async function handleSave(e) {
@@ -221,33 +261,45 @@ export default function SalePage() {
       return
     }
 
-    if (!brickType || !quantity || !rate || !saleDate) {
-      alert("Please fill all required fields")
+    if (!saleDate) {
+      alert("Please select a date")
       return
     }
 
-    const qty = Number(quantity) || 0
-    const unitRate = Number(rate) || 0
-    const total = qty * unitRate
-
-    if (qty <= 0 || unitRate <= 0) {
-      alert("Quantity and rate must be greater than zero")
+    if (sharedRate <= 0) {
+      alert("Please enter a valid rate")
       return
     }
 
-    const paid = isCashSale ? total : Number(paidAmount) || 0
+    const validRows = lineItems
+      .map((row) => ({
+        brickType: String(row.brickType || "").toLowerCase(),
+        quantity: Number(row.quantity) || 0,
+      }))
+      .filter((row) => row.brickType && row.quantity > 0)
+
+    if (validRows.length === 0) {
+      alert("Please add at least one complete line item")
+      return
+    }
+
+    const transactionTotal = validRows.reduce((sum, row) => {
+      return sum + (row.quantity / 1000) * sharedRate
+    }, 0)
+
+    const paid = isCashSale ? transactionTotal : Number(paidAmount) || 0
     const balanceAfter = isCashSale
       ? previousBalance
-      : previousBalance + total - paid
+      : previousBalance + transactionTotal - paid
 
-    const salePayload = {
-      customer_id: Number(selectedCustomer.id),
+    const salePayload = validRows.map((row) => ({
+      customer_id: selectedCustomer.id,
       customer_name: selectedCustomer.name,
       customer_type: customerType,
-      brick_type: brickType,
-      quantity: qty,
-      rate: unitRate,
-      total_amount: total,
+      brick_type: row.brickType,
+      quantity: row.quantity,
+      rate: sharedRate,
+      total_amount: (row.quantity / 1000) * sharedRate,
       paid_amount: paid,
       balance_after: balanceAfter,
       driver_name: driverName.trim(),
@@ -255,33 +307,34 @@ export default function SalePage() {
       notes: notes.trim(),
       sale_type: customerType,
       sale_date: saleDate,
-    }
+    }))
+
+    setLoading(true)
 
     try {
-      const { data: insertedSale, error: saleError } = await supabase
+      const { data: insertedSales, error: saleError } = await supabase
         .from("sales")
-        .insert([salePayload])
+        .insert(salePayload)
         .select("*")
-        .single()
 
       if (saleError) {
         alert(saleError.message)
         return
       }
 
+      const stockRows = validRows.map((row, index) => ({
+        movement_type: "out",
+        source_module: "sale",
+        brick_type: row.brickType,
+        quantity: row.quantity,
+        reference_id: insertedSales?.[index]?.id || null,
+        notes: notes.trim() || `Sale to ${selectedCustomer.name}`,
+        movement_date: saleDate,
+      }))
+
       const { error: stockError } = await supabase
         .from("stock_movements")
-        .insert([
-          {
-            movement_type: "out",
-            source_module: "sale",
-            brick_type: brickType,
-            quantity: qty,
-            reference_id: insertedSale.id,
-            notes: notes.trim() || `Sale to ${selectedCustomer.name}`,
-            movement_date: saleDate,
-          },
-        ])
+        .insert(stockRows)
 
       if (stockError) {
         alert("Sale saved but stock movement failed: " + stockError.message)
@@ -304,41 +357,160 @@ export default function SalePage() {
       }
 
       setSavedSale({
-        ...insertedSale,
         customer_name: selectedCustomer.name,
         customer_type: customerType,
-        brick_type: brickType,
-        quantity: qty,
-        rate: unitRate,
-        total_amount: total,
+        sale_date: saleDate,
+        rate: sharedRate,
+        total_quantity: totalQuantity,
+        total_amount: transactionTotal,
         paid_amount: paid,
         balance_after: balanceAfter,
         driver_name: driverName.trim(),
         tractor_type: tractorType,
         notes: notes.trim(),
-        sale_date: saleDate,
+        line_items: validRows,
       })
 
       alert("Sale saved successfully")
       resetForm(true)
-      fetchData()
+      await fetchData()
     } catch (error) {
       alert(error.message || "Failed to save sale")
+    } finally {
+      setLoading(false)
     }
   }
 
   function handlePrint() {
-    if (!savedSale?.id) {
+    if (!receiptData?.customer_name) {
       alert("Please save a sale before printing")
       return
     }
 
-    window.open(`/sale/print/${savedSale.id}`, "_blank", "noopener,noreferrer")
-  }
+    const printWindow = window.open("", "", "width=1200,height=800")
+    if (!printWindow) {
+      alert("Popup blocked. Please allow popups for printing.")
+      return
+    }
 
-  function startNewSale() {
-    setSavedSale(null)
-    resetForm(true)
+    const lineItemsHtml = (receiptData.line_items || [])
+      .map(
+        (item) => `
+          <tr>
+            <td>${titleCase(item.brickType)}</td>
+            <td>${formatMoney(item.quantity)}</td>
+            <td>Rs ${formatMoney(sharedRate)}</td>
+            <td>Rs ${formatMoney((item.quantity / 1000) * sharedRate)}</td>
+          </tr>
+        `
+      )
+      .join("")
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Sale Slip</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 24px;
+              color: #000;
+            }
+            h1, h2, p {
+              margin: 0;
+            }
+            .muted {
+              color: #555;
+              margin-top: 4px;
+            }
+            .top {
+              margin-bottom: 18px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 18px;
+            }
+            th, td {
+              border: 1px solid #ccc;
+              padding: 10px;
+              text-align: left;
+              font-size: 14px;
+            }
+            th {
+              background: #f3f4f6;
+            }
+            .summary {
+              margin-top: 18px;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 10px;
+            }
+            .box {
+              border: 1px solid #ccc;
+              padding: 10px;
+            }
+            .label {
+              color: #555;
+              font-size: 13px;
+            }
+            .value {
+              font-size: 16px;
+              font-weight: bold;
+              margin-top: 4px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="top">
+            <h1>Sale Slip</h1>
+            <p class="muted">${receiptData.customer_name} • ${titleCase(receiptData.customer_type)}</p>
+            <p class="muted">Date: ${receiptData.sale_date}</p>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Brick Type</th>
+                <th>Quantity</th>
+                <th>Rate</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lineItemsHtml || `<tr><td colspan="4">No items</td></tr>`}
+            </tbody>
+          </table>
+
+          <div class="summary">
+            <div class="box">
+              <div class="label">Grand Total</div>
+              <div class="value">Rs ${formatMoney(receiptData.total_amount)}</div>
+            </div>
+            <div class="box">
+              <div class="label">Paid</div>
+              <div class="value">Rs ${formatMoney(receiptData.paid_amount)}</div>
+            </div>
+            <div class="box">
+              <div class="label">Balance After</div>
+              <div class="value">Rs ${formatMoney(receiptData.balance_after)}</div>
+            </div>
+            <div class="box">
+              <div class="label">Delivery</div>
+              <div class="value">${receiptData.driver_name || "-"} / ${titleCase(
+      receiptData.tractor_type
+    )}</div>
+            </div>
+          </div>
+
+          <p style="margin-top: 18px;">Notes: ${receiptData.notes || "-"}</p>
+        </body>
+      </html>
+    `)
+
+    printWindow.document.close()
+    printWindow.focus()
+    setTimeout(() => printWindow.print(), 500)
   }
 
   return (
@@ -348,13 +520,11 @@ export default function SalePage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-orange-400 uppercase tracking-[0.35em] text-xs mb-3">
-                Anayat Sons Bricks
+                Kiln Operations Center
               </p>
-              <h1 className="text-4xl md:text-5xl font-bold text-white">
-                Sale
-              </h1>
+              <h1 className="text-4xl md:text-5xl font-bold text-white">Sale</h1>
               <p className="text-gray-400 mt-3 max-w-2xl">
-                Create cash and khatta sales, track stock movement, and keep customer balances updated.
+                Create multi-item sales with one shared rate, track stock movement, and keep customer balances updated.
               </p>
             </div>
 
@@ -394,7 +564,7 @@ export default function SalePage() {
             <div className="rounded-3xl border border-violet-500/20 bg-[#0f223a] p-6 shadow-2xl">
               <p className="text-gray-400">Sale Amount</p>
               <p className="mt-2 text-3xl font-bold text-violet-300">
-                Rs {formatMoney(totalAmount)}
+                Rs {formatMoney(grandTotal)}
               </p>
             </div>
           </div>
@@ -412,7 +582,7 @@ export default function SalePage() {
                       Add New Sale
                     </h2>
                     <p className="text-gray-400 mt-1">
-                      Cash customers are settled immediately. Khatta customers carry a balance.
+                      One customer, one date, many item rows, one shared rate.
                     </p>
                   </div>
 
@@ -424,95 +594,44 @@ export default function SalePage() {
                   </div>
                 </div>
 
-                <form
-                  onSubmit={handleSave}
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                >
-                  <div>
-                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      Customer
-                    </label>
-                    <select
-                      value={customerId}
-                      onChange={(e) => setCustomerId(e.target.value)}
-                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                      required
-                    >
-                      <option value="">Select Customer</option>
-                      {customers.map((customer) => (
-                        <option key={customer.id} value={customer.id}>
-                          {titleCase(customer.customer_type)} - {customer.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      Sale Mode
-                    </label>
-                    <div className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                          isCashSale
-                            ? "bg-emerald-500/15 text-emerald-200"
-                            : "bg-sky-500/15 text-sky-200"
-                        }`}
+                <form onSubmit={handleSave} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                        Customer
+                      </label>
+                      <select
+                        value={customerId}
+                        onChange={(e) => setCustomerId(e.target.value)}
+                        className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                        required
                       >
-                        {isCashSale ? "Cash Sale" : "Khatta Sale"}
-                      </span>
+                        <option value="">Select Customer</option>
+                        {customers.map((customer) => (
+                          <option key={customer.id} value={customer.id}>
+                            {titleCase(customer.customer_type)} - {customer.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                        Sale Date
+                      </label>
+                      <input
+                        type="date"
+                        value={saleDate}
+                        onChange={(e) => setSaleDate(e.target.value)}
+                        className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                        required
+                      />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      Brick Type
-                    </label>
-                    <select
-                      value={brickType}
-                      onChange={(e) => setBrickType(e.target.value)}
-                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                      required
-                    >
-                      {SALE_BRICK_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {titleCase(type)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      Sale Date
-                    </label>
-                    <input
-                      type="date"
-                      value={saleDate}
-                      onChange={(e) => setSaleDate(e.target.value)}
-                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      Quantity
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
-                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                      placeholder="Enter quantity"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      Rate
+                      Rate / 1000
                     </label>
                     <input
                       type="number"
@@ -520,73 +639,95 @@ export default function SalePage() {
                       value={rate}
                       onChange={(e) => setRate(e.target.value)}
                       className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                      placeholder="Enter rate"
+                      placeholder="Enter one shared rate"
                       required
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      Paid Amount
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={isCashSale ? totalAmount : paidAmount}
-                      onChange={(e) => setPaidAmount(e.target.value)}
-                      disabled={isCashSale}
-                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500 disabled:opacity-60"
-                      placeholder={isCashSale ? "Auto filled" : "Enter paid amount"}
-                      required={!isCashSale}
-                    />
+                  <div className="space-y-4">
+                    {lineItems.map((row, index) => (
+                      <div
+                        key={row.id}
+                        className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                          <h3 className="font-semibold text-white">
+                            Row {index + 1}
+                          </h3>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveRow(row.id)}
+                            className="rounded-xl bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/20 transition border border-rose-500/20"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                              Brick Type
+                            </label>
+                            <select
+                              value={row.brickType}
+                              onChange={(e) =>
+                                handleRowChange(row.id, "brickType", e.target.value)
+                              }
+                              className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                            >
+                              {SALE_BRICK_TYPES.map((brick) => (
+                                <option key={brick} value={brick}>
+                                  {titleCase(brick)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                              Quantity
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={row.quantity}
+                              onChange={(e) =>
+                                handleRowChange(row.id, "quantity", e.target.value)
+                              }
+                              className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                              placeholder="Enter quantity"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3">
+                          <p className="text-gray-400 text-sm">Row Total</p>
+                          <p className="mt-1 font-semibold text-orange-200 text-xl">
+                            Rs{" "}
+                            {formatMoney(
+                              ((Number(row.quantity) || 0) / 1000) *
+                                (Number(rate) || 0)
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
-                  <div>
-                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      Driver Name
-                    </label>
-                    <input
-                      type="text"
-                      value={driverName}
-                      onChange={(e) => setDriverName(e.target.value)}
-                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                      placeholder="Driver name"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      Tractor
-                    </label>
-                    <select
-                      value={tractorType}
-                      onChange={(e) => setTractorType(e.target.value)}
-                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleAddRow}
+                      className="rounded-xl bg-white/5 px-6 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10"
                     >
-                      {TRACTOR_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {titleCase(type)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                      Add Row
+                    </button>
 
-                  <div className="md:col-span-2">
-                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      Notes
-                    </label>
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      className="w-full min-h-[110px] rounded-2xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                      placeholder="Optional notes"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 flex flex-wrap gap-3 pt-1">
                     <button
                       type="submit"
-                      className="rounded-xl bg-orange-500 px-6 py-3 font-semibold text-white hover:opacity-90 transition"
+                      disabled={loading}
+                      className="rounded-xl bg-orange-500 px-6 py-3 font-semibold text-white hover:opacity-90 transition disabled:opacity-60"
                     >
                       Save Sale
                     </button>
@@ -598,20 +739,41 @@ export default function SalePage() {
                     >
                       Print Slip
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={startNewSale}
-                      className="rounded-xl bg-white/5 px-6 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10"
-                    >
-                      New Sale
-                    </button>
                   </div>
+
+                  {!isCashSale && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                      <div>
+                        <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                          Paid Amount
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={paidAmount}
+                          onChange={(e) => setPaidAmount(e.target.value)}
+                          className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                          placeholder="Enter paid amount"
+                        />
+                      </div>
+
+                      <div className="flex items-end">
+                        <div className="rounded-xl bg-white/5 border border-white/10 px-4 py-3 w-full">
+                          <p className="text-xs uppercase tracking-[0.2em] text-gray-400">
+                            Balance After
+                          </p>
+                          <p className="mt-1 text-lg font-semibold text-sky-300">
+                            Rs {formatMoney(currentBalanceAfter)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </form>
               </div>
             </section>
 
-            <section className="sale-receipt relative overflow-hidden rounded-3xl border border-white/10 bg-[#0f223a] shadow-2xl">
+            <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0f223a] shadow-2xl">
               <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-violet-500/25 via-violet-500/10 to-transparent" />
               <div className="relative p-6 md:p-7">
                 <div className="flex items-center justify-between gap-3 mb-5">
@@ -619,9 +781,7 @@ export default function SalePage() {
                     <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold bg-violet-500/15 text-violet-200">
                       Receipt Preview
                     </p>
-                    <h2 className="text-2xl font-bold mt-3">
-                      Sale Slip
-                    </h2>
+                    <h2 className="text-2xl font-bold mt-3">Sale Slip</h2>
                   </div>
 
                   <div className="text-right">
@@ -629,98 +789,85 @@ export default function SalePage() {
                       Balance
                     </p>
                     <p className="text-sm text-gray-200 mt-1">
-                      Rs {formatMoney(receipt.balance_after)}
+                      Rs {formatMoney(receiptData.balance_after)}
                     </p>
                   </div>
                 </div>
 
-                {receipt.customer_name ? (
+                {receiptData.customer_name ? (
                   <div className="space-y-3 text-sm">
                     <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                       <p className="text-gray-400">Customer</p>
                       <p className="mt-1 text-lg font-semibold text-white">
-                        {receipt.customer_name}
+                        {receiptData.customer_name}
                       </p>
                       <p className="text-gray-400 mt-1">
-                        {titleCase(receipt.customer_type)} customer
+                        {titleCase(receiptData.customer_type)} customer
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                        <p className="text-gray-400">Previous Balance</p>
-                        <p className="mt-1 text-lg font-semibold text-orange-200">
-                          Rs {formatMoney(
-                            receipt.customer_type === "cash"
-                              ? previousBalance
-                              : previousBalance
-                          )}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                        <p className="text-gray-400">Sale Mode</p>
-                        <p className="mt-1 text-lg font-semibold text-white">
-                          {titleCase(receipt.customer_type)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                        <p className="text-gray-400">Brick Type</p>
-                        <p className="mt-1 text-lg font-semibold text-white">
-                          {titleCase(receipt.brick_type)}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                        <p className="text-gray-400">Quantity</p>
-                        <p className="mt-1 text-lg font-semibold text-white">
-                          {formatMoney(receipt.quantity)}
-                        </p>
+                    <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                      <p className="text-gray-400">Line Items</p>
+                      <div className="mt-3 space-y-2">
+                        {(receiptData.line_items || []).map((item, idx) => (
+                          <div
+                            key={`${item.brickType}-${idx}`}
+                            className="rounded-xl bg-black/20 border border-white/10 p-3"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-semibold text-white">
+                                {titleCase(item.brickType)}
+                              </span>
+                              <span className="text-gray-300">
+                                {formatMoney(item.quantity)} qty
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                        <p className="text-gray-400">Total Quantity</p>
+                        <p className="mt-1 text-lg font-semibold text-white">
+                          {formatMoney(receiptData.total_quantity || totalQuantity)}
+                        </p>
+                      </div>
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                         <p className="text-gray-400">Rate</p>
                         <p className="mt-1 text-lg font-semibold text-white">
-                          Rs {formatMoney(receipt.rate)}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                        <p className="text-gray-400">Total</p>
-                        <p className="mt-1 text-lg font-semibold text-orange-200">
-                          Rs {formatMoney(receipt.total_amount)}
+                          Rs {formatMoney(receiptData.rate || rate || 0)}
                         </p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                        <p className="text-gray-400">Paid</p>
-                        <p className="mt-1 text-lg font-semibold text-emerald-300">
-                          Rs {formatMoney(receipt.paid_amount)}
+                        <p className="text-gray-400">Grand Total</p>
+                        <p className="mt-1 text-lg font-semibold text-orange-200">
+                          Rs {formatMoney(receiptData.total_amount)}
                         </p>
                       </div>
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                        <p className="text-gray-400">After Sale</p>
-                        <p className="mt-1 text-lg font-semibold text-sky-300">
-                          Rs {formatMoney(receipt.balance_after)}
+                        <p className="text-gray-400">Paid</p>
+                        <p className="mt-1 text-lg font-semibold text-emerald-300">
+                          Rs {formatMoney(receiptData.paid_amount)}
                         </p>
                       </div>
                     </div>
 
                     <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                      <p className="text-gray-400">Driver / Tractor</p>
+                      <p className="text-gray-400">Delivery</p>
                       <p className="mt-1 text-base font-semibold text-white">
-                        {receipt.driver_name || "-"} / {titleCase(receipt.tractor_type)}
+                        {receiptData.driver_name || "-"} / {titleCase(receiptData.tractor_type)}
                       </p>
                     </div>
 
                     <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                       <p className="text-gray-400">Notes</p>
                       <p className="mt-1 text-base text-white">
-                        {receipt.notes || "-"}
+                        {receiptData.notes || "-"}
                       </p>
                     </div>
                   </div>
@@ -810,21 +957,15 @@ export default function SalePage() {
                     sales.map((sale) => (
                       <tr key={sale.id} className="border-b border-gray-800">
                         <td className="py-3 pr-4">{sale.sale_date}</td>
-                        <td className="py-3 pr-4">
-                          {sale.customer_name || "-"}
-                        </td>
+                        <td className="py-3 pr-4">{sale.customer_name || "-"}</td>
                         <td className="py-3 pr-4 capitalize">
                           {sale.sale_type || "-"}
                         </td>
                         <td className="py-3 pr-4 capitalize">
                           {sale.brick_type || "-"}
                         </td>
-                        <td className="py-3 pr-4">
-                          {formatMoney(sale.quantity)}
-                        </td>
-                        <td className="py-3 pr-4">
-                          Rs {formatMoney(sale.rate)}
-                        </td>
+                        <td className="py-3 pr-4">{formatMoney(sale.quantity)}</td>
+                        <td className="py-3 pr-4">Rs {formatMoney(sale.rate)}</td>
                         <td className="py-3 pr-4 text-orange-300 font-semibold">
                           Rs {formatMoney(sale.total_amount)}
                         </td>
@@ -852,31 +993,6 @@ export default function SalePage() {
 
           .no-print {
             display: none !important;
-          }
-
-          .sale-receipt {
-            width: 33.33vw !important;
-            max-width: 33.33vw !important;
-            margin: 0 auto !important;
-            box-shadow: none !important;
-            border: 1px solid #ddd !important;
-            background: #fff !important;
-            color: #000 !important;
-          }
-
-          .sale-receipt * {
-            color: #000 !important;
-          }
-
-          .sale-receipt .bg-white\/5,
-          .sale-receipt .bg-\[\#0f223a\],
-          .sale-receipt .bg-\[\#081a2f\] {
-            background: #fff !important;
-          }
-
-          .sale-receipt .border-white\/10,
-          .sale-receipt .border-orange-500\/20 {
-            border-color: #ddd !important;
           }
         }
       `}</style>
