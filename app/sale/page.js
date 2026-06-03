@@ -89,6 +89,7 @@ function makeRow(brickType = "awal") {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     brickType,
     quantity: "",
+    rate: "",
   }
 }
 
@@ -100,7 +101,6 @@ export default function SalePage() {
 
   const [customerId, setCustomerId] = useState("")
   const [saleDate, setSaleDate] = useState(getTodayDateInput())
-  const [rate, setRate] = useState("")
   const [paidAmount, setPaidAmount] = useState("")
   const [driverName, setDriverName] = useState("")
   const [tractorType, setTractorType] = useState("russi")
@@ -130,26 +130,30 @@ export default function SalePage() {
     selectedCustomer?.current_balance ?? selectedCustomer?.opening_balance ?? 0
   ) || 0
 
-  const sharedRate = Number(rate) || 0
-
   const validLineItems = useMemo(() => {
     return lineItems
       .map((row) => ({
         id: row.id,
         brickType: String(row.brickType || "").toLowerCase(),
         quantity: Number(row.quantity) || 0,
+        rate: Number(row.rate) || 0,
       }))
-      .filter((row) => row.brickType && row.quantity > 0)
+      .filter(
+        (row) =>
+          row.brickType &&
+          row.quantity > 0 &&
+          row.rate > 0
+      )
   }, [lineItems])
-
-  const grandTotal = useMemo(() => {
-    return validLineItems.reduce((sum, row) => {
-      return sum + (row.quantity / 1000) * sharedRate
-    }, 0)
-  }, [validLineItems, sharedRate])
 
   const totalQuantity = useMemo(() => {
     return validLineItems.reduce((sum, row) => sum + row.quantity, 0)
+  }, [validLineItems])
+
+  const grandTotal = useMemo(() => {
+    return validLineItems.reduce((sum, row) => {
+      return sum + (row.quantity / 1000) * row.rate
+    }, 0)
   }, [validLineItems])
 
   const effectivePaidAmount = isCashSale ? grandTotal : Number(paidAmount) || 0
@@ -170,7 +174,6 @@ export default function SalePage() {
     customer_name: selectedCustomer?.name || "",
     customer_type: customerType,
     sale_date: saleDate,
-    rate: sharedRate,
     total_quantity: totalQuantity,
     total_amount: grandTotal,
     paid_amount: effectivePaidAmount,
@@ -220,13 +223,11 @@ export default function SalePage() {
 
   function resetForm(keepCustomer = true) {
     setSaleDate(getTodayDateInput())
-    setRate("")
     setPaidAmount("")
     setDriverName("")
     setTractorType("russi")
     setNotes("")
     setLineItems([makeRow("awal")])
-    setSavedSale(null)
 
     if (!keepCustomer) {
       setCustomerId("")
@@ -266,42 +267,23 @@ export default function SalePage() {
       return
     }
 
-    if (sharedRate <= 0) {
-      alert("Please enter a valid rate")
-      return
-    }
+    const rows = validLineItems
 
-    const validRows = lineItems
-      .map((row) => ({
-        brickType: String(row.brickType || "").toLowerCase(),
-        quantity: Number(row.quantity) || 0,
-      }))
-      .filter((row) => row.brickType && row.quantity > 0)
-
-    if (validRows.length === 0) {
+    if (rows.length === 0) {
       alert("Please add at least one complete line item")
       return
     }
 
-    const transactionTotal = validRows.reduce((sum, row) => {
-      return sum + (row.quantity / 1000) * sharedRate
-    }, 0)
-
-    const paid = isCashSale ? transactionTotal : Number(paidAmount) || 0
-    const balanceAfter = isCashSale
-      ? previousBalance
-      : previousBalance + transactionTotal - paid
-
-    const salePayload = validRows.map((row) => ({
+    const saleRows = rows.map((row) => ({
       customer_id: selectedCustomer.id,
       customer_name: selectedCustomer.name,
       customer_type: customerType,
       brick_type: row.brickType,
       quantity: row.quantity,
-      rate: sharedRate,
-      total_amount: (row.quantity / 1000) * sharedRate,
-      paid_amount: paid,
-      balance_after: balanceAfter,
+      rate: row.rate,
+      total_amount: (row.quantity / 1000) * row.rate,
+      paid_amount: isCashSale ? grandTotal : effectivePaidAmount,
+      balance_after: isCashSale ? previousBalance : currentBalanceAfter,
       driver_name: driverName.trim(),
       tractor_type: tractorType,
       notes: notes.trim(),
@@ -314,7 +296,7 @@ export default function SalePage() {
     try {
       const { data: insertedSales, error: saleError } = await supabase
         .from("sales")
-        .insert(salePayload)
+        .insert(saleRows)
         .select("*")
 
       if (saleError) {
@@ -322,7 +304,7 @@ export default function SalePage() {
         return
       }
 
-      const stockRows = validRows.map((row, index) => ({
+      const stockRows = rows.map((row, index) => ({
         movement_type: "out",
         source_module: "sale",
         brick_type: row.brickType,
@@ -344,7 +326,7 @@ export default function SalePage() {
         const { error: customerError } = await supabase
           .from("customers")
           .update({
-            current_balance: balanceAfter,
+            current_balance: currentBalanceAfter,
           })
           .eq("id", selectedCustomer.id)
 
@@ -360,15 +342,14 @@ export default function SalePage() {
         customer_name: selectedCustomer.name,
         customer_type: customerType,
         sale_date: saleDate,
-        rate: sharedRate,
         total_quantity: totalQuantity,
-        total_amount: transactionTotal,
-        paid_amount: paid,
-        balance_after: balanceAfter,
+        total_amount: grandTotal,
+        paid_amount: effectivePaidAmount,
+        balance_after: currentBalanceAfter,
         driver_name: driverName.trim(),
         tractor_type: tractorType,
         notes: notes.trim(),
-        line_items: validRows,
+        line_items: rows,
       })
 
       alert("Sale saved successfully")
@@ -382,7 +363,7 @@ export default function SalePage() {
   }
 
   function handlePrint() {
-    if (!receiptData?.customer_name) {
+    if (!receiptData?.customer_name || !receiptData?.line_items?.length) {
       alert("Please save a sale before printing")
       return
     }
@@ -399,8 +380,8 @@ export default function SalePage() {
           <tr>
             <td>${titleCase(item.brickType)}</td>
             <td>${formatMoney(item.quantity)}</td>
-            <td>Rs ${formatMoney(sharedRate)}</td>
-            <td>Rs ${formatMoney((item.quantity / 1000) * sharedRate)}</td>
+            <td>Rs ${formatMoney(item.rate)}</td>
+            <td>Rs ${formatMoney((item.quantity / 1000) * item.rate)}</td>
           </tr>
         `
       )
@@ -513,6 +494,8 @@ export default function SalePage() {
     setTimeout(() => printWindow.print(), 500)
   }
 
+  const recentSales = useMemo(() => sales, [sales])
+
   return (
     <div className="min-h-screen bg-[#061226] text-white">
       <div className="no-print px-4 py-4 md:px-8 md:py-6">
@@ -522,9 +505,11 @@ export default function SalePage() {
               <p className="text-orange-400 uppercase tracking-[0.35em] text-xs mb-3">
                 Kiln Operations Center
               </p>
-              <h1 className="text-4xl md:text-5xl font-bold text-white">Sale</h1>
+              <h1 className="text-4xl md:text-5xl font-bold text-white">
+                Sale
+              </h1>
               <p className="text-gray-400 mt-3 max-w-2xl">
-                Create multi-item sales with one shared rate, track stock movement, and keep customer balances updated.
+                Create multi-item sales with one customer, separate rates per row, and print the full slip in one go.
               </p>
             </div>
 
@@ -582,7 +567,7 @@ export default function SalePage() {
                       Add New Sale
                     </h2>
                     <p className="text-gray-400 mt-1">
-                      One customer, one date, many item rows, one shared rate.
+                      One customer, one date, many item rows, each with its own rate.
                     </p>
                   </div>
 
@@ -629,21 +614,6 @@ export default function SalePage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                      Rate / 1000
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={rate}
-                      onChange={(e) => setRate(e.target.value)}
-                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                      placeholder="Enter one shared rate"
-                      required
-                    />
-                  </div>
-
                   <div className="space-y-4">
                     {lineItems.map((row, index) => (
                       <div
@@ -664,7 +634,7 @@ export default function SalePage() {
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
                             <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
                               Brick Type
@@ -699,16 +669,28 @@ export default function SalePage() {
                               placeholder="Enter quantity"
                             />
                           </div>
+
+                          <div>
+                            <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                              Rate / 1000
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={row.rate}
+                              onChange={(e) =>
+                                handleRowChange(row.id, "rate", e.target.value)
+                              }
+                              className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                              placeholder="Enter rate"
+                            />
+                          </div>
                         </div>
 
                         <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3">
                           <p className="text-gray-400 text-sm">Row Total</p>
                           <p className="mt-1 font-semibold text-orange-200 text-xl">
-                            Rs{" "}
-                            {formatMoney(
-                              ((Number(row.quantity) || 0) / 1000) *
-                                (Number(rate) || 0)
-                            )}
+                            Rs {formatMoney(((Number(row.quantity) || 0) / 1000) * (Number(row.rate) || 0))}
                           </p>
                         </div>
                       </div>
@@ -781,7 +763,9 @@ export default function SalePage() {
                     <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold bg-violet-500/15 text-violet-200">
                       Receipt Preview
                     </p>
-                    <h2 className="text-2xl font-bold mt-3">Sale Slip</h2>
+                    <h2 className="text-2xl font-bold mt-3">
+                      Sale Slip
+                    </h2>
                   </div>
 
                   <div className="text-right">
@@ -822,6 +806,9 @@ export default function SalePage() {
                                 {formatMoney(item.quantity)} qty
                               </span>
                             </div>
+                            <div className="mt-1 text-gray-400 text-xs">
+                              Rate: Rs {formatMoney(item.rate)} / 1000
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -835,24 +822,24 @@ export default function SalePage() {
                         </p>
                       </div>
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                        <p className="text-gray-400">Rate</p>
-                        <p className="mt-1 text-lg font-semibold text-white">
-                          Rs {formatMoney(receiptData.rate || rate || 0)}
+                        <p className="text-gray-400">Grand Total</p>
+                        <p className="mt-1 text-lg font-semibold text-orange-200">
+                          Rs {formatMoney(receiptData.total_amount)}
                         </p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                        <p className="text-gray-400">Grand Total</p>
-                        <p className="mt-1 text-lg font-semibold text-orange-200">
-                          Rs {formatMoney(receiptData.total_amount)}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                         <p className="text-gray-400">Paid</p>
                         <p className="mt-1 text-lg font-semibold text-emerald-300">
                           Rs {formatMoney(receiptData.paid_amount)}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                        <p className="text-gray-400">After Sale</p>
+                        <p className="mt-1 text-lg font-semibold text-sky-300">
+                          Rs {formatMoney(receiptData.balance_after)}
                         </p>
                       </div>
                     </div>
@@ -947,14 +934,14 @@ export default function SalePage() {
                         Loading sales...
                       </td>
                     </tr>
-                  ) : sales.length === 0 ? (
+                  ) : recentSales.length === 0 ? (
                     <tr>
                       <td className="py-6 text-gray-400" colSpan={9}>
                         No sales recorded yet.
                       </td>
                     </tr>
                   ) : (
-                    sales.map((sale) => (
+                    recentSales.map((sale) => (
                       <tr key={sale.id} className="border-b border-gray-800">
                         <td className="py-3 pr-4">{sale.sale_date}</td>
                         <td className="py-3 pr-4">{sale.customer_name || "-"}</td>
