@@ -127,14 +127,6 @@ export default function CustomerPaymentsPage() {
   setPaymentDate(payment.payment_date)
   setNotes(payment.notes || "")
 }
-  function handleEditPayment(payment) {
-  setEditingPayment(payment)
-
-  setAmount(payment.amount)
-  setPaymentMethod(payment.payment_method)
-  setPaymentDate(payment.payment_date)
-  setNotes(payment.notes || "")
-}
   async function fetchCustomers() {
     setLoading(true)
 
@@ -974,11 +966,15 @@ export default function CustomerPaymentsPage() {
           {row.type === "Payment" && !row.is_void && (
             <div className="flex gap-3">
               <button
-                onClick={() => handleEditPayment(row.payment)}
-                className="text-sky-300 hover:text-sky-200"
-              >
-                Edit
-              </button>
+              type="button"
+              onClick={() => {
+                console.log("EDIT BUTTON CLICKED", row.payment)
+                handleEditPayment(row.payment)
+              }}
+              className="text-sky-300 hover:text-sky-200"
+            >
+              Edit
+            </button>
         
               <button
                 onClick={() => handleVoidPayment(row.payment)}
