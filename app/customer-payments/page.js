@@ -194,8 +194,17 @@ export default function CustomerPaymentsPage() {
 
     const paymentAmount = Number(amount) || 0
     if (editingPayment) {
+  const { data: freshCustomer } = await supabase
+    .from("customers")
+    .select("current_balance")
+    .eq("id", selectedCustomer.id)
+    .single()
+
+  const latestBalance =
+    Number(freshCustomer?.current_balance || 0)
+
   const restoredBalance =
-    currentBalance + Number(editingPayment.amount)
+    latestBalance + Number(editingPayment.amount)
 
   const newBalance =
     restoredBalance - paymentAmount
@@ -921,13 +930,13 @@ export default function CustomerPaymentsPage() {
             <tbody>
   {loading ? (
     <tr>
-      <td className="py-6 text-gray-400" colSpan={5}>
+      <td className="py-6 text-gray-400" colSpan={6}>
         Loading customer ledger...
       </td>
     </tr>
   ) : visibleLedgerRows.length === 0 ? (
     <tr>
-      <td className="py-6 text-gray-400" colSpan={5}>
+      <td className="py-6 text-gray-400" colSpan={6}>
         No transactions found for this customer yet.
       </td>
     </tr>
