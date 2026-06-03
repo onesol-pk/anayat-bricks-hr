@@ -24,7 +24,7 @@ function getTodayDateInput() {
 
 function getWeekStartInput(dateStr) {
   const date = new Date(`${dateStr}T00:00:00`)
-  const day = date.getDay() // 0 = Sunday ... 5 = Friday
+  const day = date.getDay() // Friday = 5
   const diff = (day - 5 + 7) % 7
   date.setDate(date.getDate() - diff)
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -50,7 +50,6 @@ function makeRow(brickType = "gutka") {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     brickType,
     quantity: "",
-    rate: "",
   }
 }
 
@@ -58,6 +57,7 @@ export default function WorkEntryPage() {
   const [workers, setWorkers] = useState([])
   const [selectedWorkerId, setSelectedWorkerId] = useState("")
   const [entryDate, setEntryDate] = useState(getTodayDateInput())
+  const [rate, setRate] = useState("")
   const [rows, setRows] = useState([makeRow()])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -80,9 +80,13 @@ export default function WorkEntryPage() {
       return
     }
 
-    if (selectedWorker) {
-      const firstBrick = brickOptions[0] || "gutka"
-      setRows([makeRow(firstBrick)])
+    if (brickOptions.length > 0) {
+      setRows((prev) =>
+        prev.map((row, index) => ({
+          ...row,
+          brickType: index === 0 ? row.brickType || brickOptions[0] : row.brickType || brickOptions[0],
+        }))
+      )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWorkerId, selectedWorker])
@@ -158,12 +162,12 @@ export default function WorkEntryPage() {
   }, [rows])
 
   const totalLabour = useMemo(() => {
+    const sharedRate = Number(rate) || 0
     return rows.reduce((sum, row) => {
       const qty = Number(row.quantity) || 0
-      const rate = Number(row.rate) || 0
-      return sum + (qty / 1000) * rate
+      return sum + (qty / 1000) * sharedRate
     }, 0)
-  }, [rows])
+  }, [rows, rate])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -178,23 +182,26 @@ export default function WorkEntryPage() {
       return
     }
 
+    const sharedRate = Number(rate) || 0
+    if (sharedRate <= 0) {
+      alert("Please enter a valid rate")
+      return
+    }
+
     const validRows = rows
       .map((row) => ({
         brickType: String(row.brickType || "").toLowerCase(),
         quantity: Number(row.quantity),
-        rate: Number(row.rate),
       }))
       .filter(
         (row) =>
           row.brickType &&
           Number.isFinite(row.quantity) &&
-          row.quantity > 0 &&
-          Number.isFinite(row.rate) &&
-          row.rate > 0
+          row.quantity > 0
       )
 
     if (validRows.length === 0) {
-      alert("Please add at least one complete row with brick type, quantity, and rate")
+      alert("Please add at least one complete row with brick type and quantity")
       return
     }
 
@@ -206,8 +213,8 @@ export default function WorkEntryPage() {
       week_start: getWeekStartInput(entryDate),
       brick_type: row.brickType,
       bricks: row.quantity,
-      rate_per_1000: row.rate,
-      total_amount: (row.quantity / 1000) * row.rate,
+      rate_per_1000: sharedRate,
+      total_amount: (row.quantity / 1000) * sharedRate,
     }))
 
     if (payload.some((item) => !item.worker_id || !item.worker_name)) {
@@ -229,6 +236,7 @@ export default function WorkEntryPage() {
 
       const firstBrick = brickOptions[0] || "gutka"
       setRows([makeRow(firstBrick)])
+      setRate("")
       setEntryDate(getTodayDateInput())
 
       await fetchWorkersAndEntries()
@@ -252,7 +260,7 @@ export default function WorkEntryPage() {
                 Work Entry
               </h1>
               <p className="text-gray-400 mt-3 max-w-2xl">
-                Add multiple brick rows for one worker in a single save.
+                Add multiple brick rows for one worker in a single save with one common rate.
               </p>
             </div>
 
@@ -309,7 +317,7 @@ export default function WorkEntryPage() {
                     Add Worker Entries
                   </h2>
                   <p className="text-gray-400 mt-1">
-                    One worker, one date, many brick rows, one save.
+                    One worker, one date, many brick rows, one shared rate.
                   </p>
                 </div>
 
@@ -356,6 +364,21 @@ export default function WorkEntryPage() {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    Rate / 1000
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={rate}
+                    onChange={(e) => setRate(e.target.value)}
+                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                    placeholder="Enter one shared rate"
+                    required
+                  />
+                </div>
+
                 <div className="space-y-4">
                   {rows.map((row, index) => (
                     <div
@@ -376,7 +399,7 @@ export default function WorkEntryPage() {
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
                             Brick Type
@@ -411,22 +434,6 @@ export default function WorkEntryPage() {
                             placeholder="Enter quantity"
                           />
                         </div>
-
-                        <div>
-                          <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                            Rate / 1000
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={row.rate}
-                            onChange={(e) =>
-                              handleRowChange(row.id, "rate", e.target.value)
-                            }
-                            className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                            placeholder="Enter rate"
-                          />
-                        </div>
                       </div>
 
                       <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3">
@@ -435,7 +442,7 @@ export default function WorkEntryPage() {
                           Rs{" "}
                           {formatMoney(
                             ((Number(row.quantity) || 0) / 1000) *
-                              (Number(row.rate) || 0)
+                              (Number(rate) || 0)
                           )}
                         </p>
                       </div>
