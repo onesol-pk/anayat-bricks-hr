@@ -119,6 +119,7 @@ export default function CustomerPaymentsPage() {
 }, [sales, payments])
 
   function handleEditPayment(payment) {
+  console.log("EDIT CLICKED", payment)
   setEditingPayment(payment)
 
   setAmount(payment.amount)
