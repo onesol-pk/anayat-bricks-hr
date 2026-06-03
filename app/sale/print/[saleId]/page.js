@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
+import { useParams } from "next/navigation"
 import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(
@@ -26,21 +26,23 @@ function titleCase(value) {
 
 export default function SalePrintPage() {
   const params = useParams()
-  const saleId = params.saleId
+  const saleId = Array.isArray(params.saleId) ? params.saleId[0] : params.saleId
 
-  const [sale, setSale] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [saleRows, setSaleRows] = useState([])
 
   useEffect(() => {
-    fetchSale()
+    if (saleId) {
+      fetchSale()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [saleId])
 
   async function fetchSale() {
     setLoading(true)
 
     try {
-      const { data, error } = await supabase
+      const { data: baseSale, error } = await supabase
         .from("sales")
         .select("*")
         .eq("id", saleId)
@@ -48,13 +50,45 @@ export default function SalePrintPage() {
 
       if (error) throw error
 
-      setSale(data)
+      let rows = [baseSale]
+
+      if (baseSale?.sale_group_id) {
+        const { data: groupedRows, error: groupError } = await supabase
+          .from("sales")
+          .select("*")
+          .eq("sale_group_id", baseSale.sale_group_id)
+          .order("created_at", { ascending: true })
+
+        if (groupError) throw groupError
+
+        if (groupedRows && groupedRows.length > 0) {
+          rows = groupedRows
+        }
+      }
+
+      setSaleRows(rows)
     } catch (error) {
       alert(error.message || "Failed to load sale slip")
     } finally {
       setLoading(false)
     }
   }
+
+  const firstSale = saleRows[0] || null
+
+  const totalQuantity = useMemo(() => {
+    return saleRows.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0)
+  }, [saleRows])
+
+  const grandTotal = useMemo(() => {
+    return saleRows.reduce(
+      (sum, row) => sum + (Number(row.total_amount) || 0),
+      0
+    )
+  }, [saleRows])
+
+  const paidAmount = Number(firstSale?.paid_amount) || 0
+  const balanceAfter = Number(firstSale?.balance_after) || 0
 
   function handlePrint() {
     window.print()
@@ -68,7 +102,7 @@ export default function SalePrintPage() {
     )
   }
 
-  if (!sale) {
+  if (!firstSale) {
     return (
       <div className="min-h-screen bg-white text-black flex items-center justify-center">
         Sale not found
@@ -92,72 +126,119 @@ export default function SalePrintPage() {
       </div>
 
       <div className="sale-print-card max-w-3xl mx-auto border border-gray-300 p-6 rounded bg-white">
-        <h1 className="text-2xl font-bold text-center">
-          Anayat Sons Bricks
-        </h1>
-        <h2 className="text-lg font-semibold text-center mt-1">
-          Sale Slip
-        </h2>
+        <h1 className="text-2xl font-bold text-center">Anayat Sons Bricks</h1>
+        <h2 className="text-lg font-semibold text-center mt-1">Sale Slip</h2>
 
         <div className="grid grid-cols-2 gap-4 mt-6 text-sm">
           <div>
             <p className="text-gray-500">Date</p>
-            <p className="font-semibold">{sale.sale_date}</p>
+            <p className="font-semibold">{firstSale.sale_date}</p>
           </div>
+
           <div>
             <p className="text-gray-500">Customer</p>
-            <p className="font-semibold">{sale.customer_name}</p>
+            <p className="font-semibold">{firstSale.customer_name}</p>
           </div>
+
           <div>
             <p className="text-gray-500">Type</p>
-            <p className="font-semibold">{titleCase(sale.customer_type)}</p>
+            <p className="font-semibold">
+              {titleCase(firstSale.customer_type)}
+            </p>
           </div>
+
           <div>
             <p className="text-gray-500">Sale Mode</p>
-            <p className="font-semibold">{titleCase(sale.sale_type)}</p>
+            <p className="font-semibold">{titleCase(firstSale.sale_type)}</p>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <p className="text-gray-500 text-sm mb-2">Line Items</p>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Brick Type
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Quantity
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Rate
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {saleRows.map((row) => (
+                <tr key={row.id}>
+                  <td className="border border-gray-300 px-3 py-2">
+                    {titleCase(row.brick_type)}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2">
+                    {formatMoney(row.quantity)}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2">
+                    Rs {formatMoney(row.rate)}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2">
+                    Rs {formatMoney(row.total_amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mt-6 text-sm">
           <div>
-            <p className="text-gray-500">Brick Type</p>
-            <p className="font-semibold">{titleCase(sale.brick_type)}</p>
+            <p className="text-gray-500">Total Quantity</p>
+            <p className="font-semibold">{formatMoney(totalQuantity)}</p>
           </div>
+
           <div>
-            <p className="text-gray-500">Quantity</p>
-            <p className="font-semibold">{formatMoney(sale.quantity)}</p>
+            <p className="text-gray-500">Grand Total</p>
+            <p className="font-semibold">Rs {formatMoney(grandTotal)}</p>
           </div>
-          <div>
-            <p className="text-gray-500">Rate</p>
-            <p className="font-semibold">Rs {formatMoney(sale.rate)}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Total Amount</p>
-            <p className="font-semibold">Rs {formatMoney(sale.total_amount)}</p>
-          </div>
+
           <div>
             <p className="text-gray-500">Paid Amount</p>
-            <p className="font-semibold">Rs {formatMoney(sale.paid_amount)}</p>
+            <p className="font-semibold">Rs {formatMoney(paidAmount)}</p>
           </div>
+
           <div>
             <p className="text-gray-500">Balance After</p>
-            <p className="font-semibold">Rs {formatMoney(sale.balance_after)}</p>
+            <p className="font-semibold">Rs {formatMoney(balanceAfter)}</p>
           </div>
+
           <div>
             <p className="text-gray-500">Driver</p>
-            <p className="font-semibold">{sale.driver_name || "-"}</p>
+            <p className="font-semibold">{firstSale.driver_name || "-"}</p>
           </div>
+
           <div>
             <p className="text-gray-500">Tractor</p>
-            <p className="font-semibold">{titleCase(sale.tractor_type) || "-"}</p>
+            <p className="font-semibold">
+              {titleCase(firstSale.tractor_type) || "-"}
+            </p>
           </div>
         </div>
 
         <div className="mt-6">
           <p className="text-gray-500 text-sm">Notes</p>
-          <p className="font-semibold">{sale.notes || "-"}</p>
+          <p className="font-semibold">{firstSale.notes || "-"}</p>
         </div>
       </div>
 
       <style jsx global>{`
         @media print {
+          body {
+            background: #fff !important;
+          }
+
           .no-print {
             display: none !important;
           }
