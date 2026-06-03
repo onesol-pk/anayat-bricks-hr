@@ -274,7 +274,10 @@ export default function SalePage() {
       return
     }
 
+    const saleGroupId = crypto.randomUUID()
+
     const saleRows = rows.map((row) => ({
+      sale_group_id: saleGroupId,
       customer_id: selectedCustomer.id,
       customer_name: selectedCustomer.name,
       customer_type: customerType,
@@ -339,6 +342,7 @@ export default function SalePage() {
       }
 
       setSavedSale({
+        sale_group_id: saleGroupId,
         customer_name: selectedCustomer.name,
         customer_type: customerType,
         sale_date: saleDate,
