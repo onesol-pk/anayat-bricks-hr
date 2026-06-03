@@ -177,7 +177,10 @@ export default function SalePage() {
     total_quantity: totalQuantity,
     total_amount: grandTotal,
     paid_amount: effectivePaidAmount,
-    balance_after: currentBalanceAfter,
+    balance_after:
+  totalQuantity > 0
+    ? currentBalanceAfter
+    : previousBalance,
     driver_name: driverName.trim(),
     tractor_type: tractorType,
     notes: notes.trim(),
@@ -629,13 +632,15 @@ export default function SalePage() {
                             Row {index + 1}
                           </h3>
 
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveRow(row.id)}
-                            className="rounded-xl bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/20 transition border border-rose-500/20"
-                          >
-                            Remove
-                          </button>
+                          {lineItems.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRow(row.id)}
+                              className="rounded-xl bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/20 transition border border-rose-500/20"
+                            >
+                              Remove
+                            </button>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -755,6 +760,53 @@ export default function SalePage() {
                       </div>
                     </div>
                   )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                  <div>
+                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                      Driver Name
+                    </label>
+                
+                    <input
+                      type="text"
+                      value={driverName}
+                      onChange={(e) => setDriverName(e.target.value)}
+                      placeholder="Driver name"
+                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                    />
+                  </div>
+                
+                  <div>
+                    <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                      Tractor
+                    </label>
+                
+                    <select
+                      value={tractorType}
+                      onChange={(e) => setTractorType(e.target.value)}
+                      className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                    >
+                      {TRACTOR_TYPES.map((tractor) => (
+                        <option key={tractor} value={tractor}>
+                          {titleCase(tractor)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="pt-4">
+                  <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                    Notes
+                  </label>
+                
+                  <textarea
+                    rows={4}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Optional notes"
+                    className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500 resize-none"
+                  />
+                </div>
                 </form>
               </div>
             </section>
