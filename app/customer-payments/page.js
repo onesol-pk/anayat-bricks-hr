@@ -45,6 +45,8 @@ export default function CustomerPaymentsPage() {
   const [visibleRows, setVisibleRows] = useState(10)
   const [fromDate, setFromDate] = useState("")
   const [toDate, setToDate] = useState("")
+  const [savedPayment, setSavedPayment] = useState(null)
+  const [editingPayment, setEditingPayment] = useState(null)
 
   useEffect(() => {
     fetchCustomers()
@@ -98,20 +100,40 @@ export default function CustomerPaymentsPage() {
 
   payments.forEach((payment) => {
     rows.push({
-      id: `payment-${payment.id}`,
-      date: payment.payment_date,
-      type: "Payment",
-      details: `${titleCase(payment.payment_method)}${
-        payment.notes ? ` • ${payment.notes}` : ""
-      }`,
-      delivery: "-",
-      amount: Number(payment.amount) || 0,
-    })
+  id: `payment-${payment.id}`,
+  paymentId: payment.id,
+  is_void: payment.is_void,
+  void_reason: payment.void_reason,
+  payment,
+  date: payment.payment_date,
+  type: "Payment",
+  details: `${titleCase(payment.payment_method)}${
+    payment.notes ? ` • ${payment.notes}` : ""
+  }`,
+  delivery: "-",
+  amount: Number(payment.amount) || 0,
+})
   })
 
   return rows.sort((a, b) => new Date(b.date) - new Date(a.date))
 }, [sales, payments])
 
+  function handleEditPayment(payment) {
+  setEditingPayment(payment)
+
+  setAmount(payment.amount)
+  setPaymentMethod(payment.payment_method)
+  setPaymentDate(payment.payment_date)
+  setNotes(payment.notes || "")
+}
+  function handleEditPayment(payment) {
+  setEditingPayment(payment)
+
+  setAmount(payment.amount)
+  setPaymentMethod(payment.payment_method)
+  setPaymentDate(payment.payment_date)
+  setNotes(payment.notes || "")
+}
   async function fetchCustomers() {
     setLoading(true)
 
@@ -137,10 +159,11 @@ export default function CustomerPaymentsPage() {
     try {
       const [paymentsRes, salesRes] = await Promise.all([
         supabase
-          .from("customer_payments")
-          .select("*")
-          .eq("customer_id", customerId)
-          .order("created_at", { ascending: false }),
+        .from("customer_payments")
+        .select("*")
+        .eq("customer_id", customerId)
+        .eq("is_void", false)
+        .order("created_at", { ascending: false }),
 
         supabase
           .from("sales")
@@ -170,6 +193,53 @@ export default function CustomerPaymentsPage() {
     }
 
     const paymentAmount = Number(amount) || 0
+    if (editingPayment) {
+  const restoredBalance =
+    currentBalance + Number(editingPayment.amount)
+
+  const newBalance =
+    restoredBalance - paymentAmount
+
+  const { error: paymentError } = await supabase
+    .from("customer_payments")
+    .update({
+      amount: paymentAmount,
+      payment_method: paymentMethod,
+      payment_date: paymentDate,
+      notes,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", editingPayment.id)
+
+  if (paymentError) {
+    alert(paymentError.message)
+    return
+  }
+
+  const { error: balanceError } = await supabase
+    .from("customers")
+    .update({
+      current_balance: newBalance,
+    })
+    .eq("id", selectedCustomer.id)
+
+  if (balanceError) {
+    alert(balanceError.message)
+    return
+  }
+
+  setEditingPayment(null)
+
+  setAmount("")
+  setNotes("")
+
+  await fetchCustomers()
+  await fetchLedger(selectedCustomer.id)
+
+  alert("Payment updated successfully")
+
+  return
+}
 
     if (paymentAmount <= 0) {
       alert("Please enter a valid payment amount")
@@ -214,7 +284,17 @@ export default function CustomerPaymentsPage() {
         return
       }
 
-      alert("Payment saved successfully")
+      setSavedPayment({
+      customer_name: selectedCustomer.name,
+      customer_type: selectedCustomer.customer_type,
+      amount: paymentAmount,
+      payment_method: paymentMethod,
+      payment_date: paymentDate,
+      notes: notes.trim(),
+      balance_after: newBalance,
+    })
+    
+    alert("Payment saved successfully")
 
       setAmount("")
       setPaymentMethod("cash")
@@ -227,12 +307,151 @@ export default function CustomerPaymentsPage() {
       alert(error.message || "Failed to save payment")
     }
   }
+  function handlePrintReceipt() {
+  if (!savedPayment) {
+    alert("Please save a payment before printing")
+    return
+  }
+
+  const win = window.open("", "", "width=1200,height=800")
+
+  win.document.write(`
+    <html>
+      <head>
+        <title>Customer Payment Receipt</title>
+
+        <style>
+          body{
+            font-family:Arial,sans-serif;
+            padding:30px;
+            color:#000;
+          }
+
+          .header{
+            text-align:center;
+            margin-bottom:30px;
+          }
+
+          .company{
+            font-size:28px;
+            font-weight:700;
+          }
+
+          .address{
+            margin-top:8px;
+            color:#555;
+            line-height:1.5;
+          }
+
+          .title{
+            margin-top:12px;
+            font-size:20px;
+            font-weight:600;
+          }
+
+          .box{
+            border:1px solid #ddd;
+            padding:12px;
+            margin-bottom:10px;
+          }
+        </style>
+      </head>
+
+      <body>
+
+        <div class="header">
+          <div class="company">Anayat Sons Bricks</div>
+
+          <div class="address">
+            248 R.B, Dalowal<br>
+            Samundri Road, Faisalabad
+          </div>
+
+          <div class="title">
+            Customer Payment Receipt
+          </div>
+        </div>
+
+        <div class="box">
+          Customer: ${savedPayment.customer_name}
+        </div>
+
+        <div class="box">
+          Date: ${savedPayment.payment_date}
+        </div>
+
+        <div class="box">
+          Amount Received: Rs ${formatMoney(savedPayment.amount)}
+        </div>
+
+        <div class="box">
+          Method: ${titleCase(savedPayment.payment_method)}
+        </div>
+
+        <div class="box">
+          Balance After Payment:
+          Rs ${formatMoney(savedPayment.balance_after)}
+        </div>
+
+        <div class="box">
+          Notes: ${savedPayment.notes || "-"}
+        </div>
+
+      </body>
+    </html>
+  `)
+
+  win.document.close()
+
+  setTimeout(() => {
+    win.print()
+  }, 500)
+}
 
   function handleCustomerChange(value) {
     setSelectedCustomerId(value)
     setPayments([])
     setSales([])
   }
+  async function handleVoidPayment(payment) {
+  const reason = prompt("Reason for void?")
+
+  if (!reason) return
+
+  const restoredBalance =
+    currentBalance + Number(payment.amount)
+
+  const { error: paymentError } = await supabase
+    .from("customer_payments")
+    .update({
+      is_void: true,
+      void_reason: reason,
+      voided_at: new Date().toISOString(),
+    })
+    .eq("id", payment.id)
+
+  if (paymentError) {
+    alert(paymentError.message)
+    return
+  }
+
+  const { error: balanceError } = await supabase
+    .from("customers")
+    .update({
+      current_balance: restoredBalance,
+    })
+    .eq("id", selectedCustomer.id)
+
+  if (balanceError) {
+    alert(balanceError.message)
+    return
+  }
+
+  await fetchCustomers()
+  await fetchLedger(selectedCustomer.id)
+
+  alert("Payment voided")
+}
 
   return (
     <div className="min-h-screen bg-[#061226] text-white">
@@ -407,12 +626,22 @@ export default function CustomerPaymentsPage() {
                 </div>
 
                 <div className="xl:col-span-3 pt-1">
-                  <button
-                    type="submit"
-                    className="w-full rounded-xl bg-orange-500 px-5 py-3 font-semibold text-white hover:opacity-90 transition"
-                  >
-                    Save Payment
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                  type="submit"
+                  className="w-full rounded-xl bg-orange-500 px-5 py-3 font-semibold text-white hover:opacity-90 transition"
+                >
+                  {editingPayment ? "Update Payment" : "Save Payment"}
+                </button>
+                  
+                    <button
+                      type="button"
+                      onClick={handlePrintReceipt}
+                      className="rounded-xl bg-white/5 px-6 py-3 font-semibold text-gray-200 border border-white/10"
+                    >
+                      Print Receipt
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -480,6 +709,45 @@ export default function CustomerPaymentsPage() {
 
     const visibleLedgerRows = filteredLedgerRows.slice(0, visibleRows)
 
+    async function handleVoidPayment(payment) {
+  const reason = prompt("Reason for void?")
+
+  if (!reason) return
+
+  const restoredBalance =
+    currentBalance + Number(payment.amount)
+
+  const { error: paymentError } = await supabase
+    .from("customer_payments")
+    .update({
+      is_void: true,
+      void_reason: reason,
+      voided_at: new Date().toISOString(),
+    })
+    .eq("id", payment.id)
+
+  if (paymentError) {
+    alert(paymentError.message)
+    return
+  }
+
+  const { error: balanceError } = await supabase
+    .from("customers")
+    .update({
+      current_balance: restoredBalance,
+    })
+    .eq("id", selectedCustomer.id)
+
+  if (balanceError) {
+    alert(balanceError.message)
+    return
+  }
+
+  await fetchCustomers()
+  await fetchLedger(selectedCustomer.id)
+
+  alert("Payment voided")
+}
     function handlePrintLedger() {
       const printContents = document.getElementById(
         "customer-ledger-print"
@@ -548,14 +816,29 @@ export default function CustomerPaymentsPage() {
           </head>
 
           <body>
-            <h1>Customer Ledger</h1>
 
-            <div class="sub">
+          <div style="text-align:center;margin-bottom:25px;">
+            <div style="font-size:28px;font-weight:700;">
+              Anayat Sons Bricks
+            </div>
+        
+            <div style="margin-top:8px;color:#555;line-height:1.5;">
+              248 R.B, Dalowal<br>
+              Samundri Road, Faisalabad
+            </div>
+        
+            <div style="margin-top:12px;font-size:20px;font-weight:600;">
+              Customer Ledger
+            </div>
+        
+            <div style="margin-top:6px;color:#666;">
               ${selectedCustomer?.name || ""}
             </div>
-
-            ${printContents}
-          </body>
+          </div>
+        
+          ${printContents}
+        
+        </body>
         </html>
       `)
 
@@ -630,7 +913,8 @@ export default function CustomerPaymentsPage() {
                 <th className="py-3 pr-4">Type</th>
                 <th className="py-3 pr-4">Details</th>
                 <th className="py-3 pr-4">Delivery</th>
-                <th className="py-3 pr-4">Amount</th>
+                <th className="py-3 pr-4 text-left">Amount</th>
+                <th className="py-3 pr-4 text-left hide-print">Actions</th>
               </tr>
             </thead>
 
@@ -675,6 +959,31 @@ export default function CustomerPaymentsPage() {
           }
         >
           Rs {formatMoney(Math.abs(row.amount))}
+        </td>
+          <td className="py-3 pr-4 hide-print">
+          {row.type === "Payment" && !row.is_void && (
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleEditPayment(row.payment)}
+                className="text-sky-300 hover:text-sky-200"
+              >
+                Edit
+              </button>
+        
+              <button
+                onClick={() => handleVoidPayment(row.payment)}
+                className="text-rose-300 hover:text-rose-200"
+              >
+                Void
+              </button>
+            </div>
+          )}
+        
+          {row.is_void && (
+            <span className="text-rose-300 font-semibold">
+              VOID
+            </span>
+          )}
         </td>
       </tr>
     ))
