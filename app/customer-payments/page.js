@@ -119,7 +119,6 @@ export default function CustomerPaymentsPage() {
 }, [sales, payments])
 
   function handleEditPayment(payment) {
-  console.log("EDIT CLICKED", payment)
   setEditingPayment(payment)
 
   setAmount(payment.amount)
@@ -968,7 +967,6 @@ export default function CustomerPaymentsPage() {
               <button
               type="button"
               onClick={() => {
-                console.log("EDIT BUTTON CLICKED", row.payment)
                 handleEditPayment(row.payment)
               }}
               className="text-sky-300 hover:text-sky-200"
