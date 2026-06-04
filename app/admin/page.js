@@ -364,6 +364,10 @@ export default function AdminDashboard() {
             <p className="text-xs uppercase tracking-[0.25em] text-gray-400">
               Anayat Sons Bricks
             </p>
+              <div class="address">
+            248 R.B, Dalowal,<br />
+            Samundri Road, Faisalabad
+          </div>
             <h1 className="text-lg font-bold">Dashboard</h1>
           </div>
 
