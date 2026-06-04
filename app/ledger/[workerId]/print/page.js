@@ -249,6 +249,10 @@ export default function PrintLedgerPage() {
           <h1 className="text-2xl font-bold">
             Anayat Sons Bricks – Worker Ledger Slip
           </h1>
+          <div class="address">
+            248 R.B, Dalowal,<br />
+            Samundri Road, Faisalabad
+          </div>
 
           <h2 className="text-xl font-bold mt-2" dir="rtl">
             عنایت سنز برکس – ورکر لیجر سلپ
