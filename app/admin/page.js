@@ -361,9 +361,9 @@ export default function AdminDashboard() {
           </button>
 
           <div className="text-center">
-            <p className="text-xs uppercase tracking-[0.25em] text-gray-400">
-              Anayat Sons Bricks
-            </p>
+            <p className="text-orange-400 uppercase tracking-[0.35em] text-xs mb-3">
+                Anayat Sons Bricks
+              </p>
             <h1 className="text-lg font-bold">248 R.B, Dalowal,<br />
             Samundri Road, Faisalabad</h1>
           </div>
@@ -418,9 +418,6 @@ export default function AdminDashboard() {
         <div className="mx-auto max-w-7xl space-y-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-orange-400 uppercase tracking-[0.35em] text-xs mb-3">
-                Anayat Sons Bricks
-              </p>
               <h1 className="text-4xl md:text-5xl font-bold text-white">
                 Dashboard
               </h1>
