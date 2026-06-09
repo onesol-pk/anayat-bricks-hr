@@ -45,20 +45,14 @@ function titleCase(value) {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function makeRow(brickType = "gutka") {
-  return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    brickType,
-    quantity: "",
-  }
-}
+
 
 export default function WorkEntryPage() {
   const [workers, setWorkers] = useState([])
   const [selectedWorkerId, setSelectedWorkerId] = useState("")
   const [entryDate, setEntryDate] = useState(getTodayDateInput())
   const [rate, setRate] = useState("")
-  const [rows, setRows] = useState([makeRow()])
+  const [brickEntries, setBrickEntries] = useState({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [recentEntries, setRecentEntries] = useState([])
@@ -81,13 +75,14 @@ export default function WorkEntryPage() {
     }
 
     if (brickOptions.length > 0) {
-      setRows((prev) =>
-        prev.map((row, index) => ({
-          ...row,
-          brickType: index === 0 ? row.brickType || brickOptions[0] : row.brickType || brickOptions[0],
-        }))
-      )
-    }
+    const initial = {}
+  
+    brickOptions.forEach((brick) => {
+      initial[brick] = ""
+    })
+  
+    setBrickEntries(initial)
+  }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWorkerId, selectedWorker])
 
@@ -135,39 +130,23 @@ export default function WorkEntryPage() {
   function handleWorkerChange(value) {
     setSelectedWorkerId(value)
   }
-
-  function handleRowChange(rowId, field, value) {
-    setRows((prev) =>
-      prev.map((row) => {
-        if (row.id !== rowId) return row
-        return { ...row, [field]: value }
-      })
-    )
-  }
-
-  function addRow() {
-    const firstBrick = brickOptions[0] || "gutka"
-    setRows((prev) => [...prev, makeRow(firstBrick)])
-  }
-
-  function removeRow(rowId) {
-    setRows((prev) => {
-      if (prev.length === 1) return prev
-      return prev.filter((row) => row.id !== rowId)
-    })
-  }
-
+  
   const totalBricks = useMemo(() => {
-    return rows.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0)
-  }, [rows])
+  return Object.values(brickEntries).reduce(
+    (sum, qty) => sum + (Number(qty) || 0),
+    0
+  )
+}, [brickEntries])
 
   const totalLabour = useMemo(() => {
-    const sharedRate = Number(rate) || 0
-    return rows.reduce((sum, row) => {
-      const qty = Number(row.quantity) || 0
-      return sum + (qty / 1000) * sharedRate
-    }, 0)
-  }, [rows, rate])
+  const sharedRate = Number(rate) || 0
+
+  return Object.values(brickEntries).reduce(
+    (sum, qty) =>
+      sum + ((Number(qty) || 0) / 1000) * sharedRate,
+    0
+  )
+}, [brickEntries, rate])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -188,11 +167,11 @@ export default function WorkEntryPage() {
       return
     }
 
-    const validRows = rows
-      .map((row) => ({
-        brickType: String(row.brickType || "").toLowerCase(),
-        quantity: Number(row.quantity),
-      }))
+    const validRows = Object.entries(brickEntries)
+  .map(([brickType, quantity]) => ({
+    brickType,
+    quantity: Number(quantity),
+  }))
       .filter(
         (row) =>
           row.brickType &&
@@ -234,8 +213,13 @@ export default function WorkEntryPage() {
 
       alert("Work entries saved successfully")
 
-      const firstBrick = brickOptions[0] || "gutka"
-      setRows([makeRow(firstBrick)])
+      const resetEntries = {}
+
+      brickOptions.forEach((brick) => {
+        resetEntries[brick] = ""
+      })
+      
+      setBrickEntries(resetEntries)
       setRate("")
       setEntryDate(getTodayDateInput())
 
@@ -379,73 +363,26 @@ export default function WorkEntryPage() {
                   />
                 </div>
 
-                <div className="space-y-4">
-                  {rows.map((row, index) => (
-                    <div
-                      key={row.id}
-                      className="rounded-2xl border border-white/10 bg-white/5 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3 mb-4">
-                        <h3 className="font-semibold text-white">
-                          Row {index + 1}
-                        </h3>
-
-                        <button
-                          type="button"
-                          onClick={() => removeRow(row.id)}
-                          className="rounded-xl bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-300 hover:bg-rose-500/20 transition border border-rose-500/20"
-                        >
-                          Remove
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                            Brick Type
-                          </label>
-                          <select
-                            value={row.brickType}
-                            onChange={(e) =>
-                              handleRowChange(row.id, "brickType", e.target.value)
-                            }
-                            className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                          >
-                            {brickOptions.map((brick) => (
-                              <option key={brick} value={brick}>
-                                {titleCase(brick)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
-                            Quantity
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={row.quantity}
-                            onChange={(e) =>
-                              handleRowChange(row.id, "quantity", e.target.value)
-                            }
-                            className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
-                            placeholder="Enter quantity"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3">
-                        <p className="text-gray-400 text-sm">Row Total</p>
-                        <p className="mt-1 font-semibold text-orange-200 text-xl">
-                          Rs{" "}
-                          {formatMoney(
-                            ((Number(row.quantity) || 0) / 1000) *
-                              (Number(rate) || 0)
-                          )}
-                        </p>
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {brickOptions.map((brick) => (
+                    <div key={brick}>
+                      <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                        {titleCase(brick)}
+                      </label>
+                
+                      <input
+                        type="number"
+                        min="0"
+                        value={brickEntries[brick] || ""}
+                        onChange={(e) =>
+                          setBrickEntries((prev) => ({
+                            ...prev,
+                            [brick]: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                        placeholder="Enter quantity"
+                      />
                     </div>
                   ))}
                 </div>
