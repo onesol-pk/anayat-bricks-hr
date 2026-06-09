@@ -103,6 +103,7 @@ export default function SalePage() {
   const [saleDate, setSaleDate] = useState(getTodayDateInput())
   const [paidAmount, setPaidAmount] = useState("")
   const [driverName, setDriverName] = useState("")
+  const [driverPhone, setDriverPhone] = useState("")
   const [tractorType, setTractorType] = useState("russi")
   const [notes, setNotes] = useState("")
   const [lineItems, setLineItems] = useState([makeRow("awal")])
@@ -172,6 +173,7 @@ export default function SalePage() {
 
   const receiptData = savedSale || {
     customer_name: selectedCustomer?.name || "",
+    customer_phone: selectedCustomer?.phone || "",
     customer_type: customerType,
     sale_date: saleDate,
     total_quantity: totalQuantity,
@@ -182,6 +184,7 @@ export default function SalePage() {
     ? currentBalanceAfter
     : previousBalance,
     driver_name: driverName.trim(),
+    driver_phone: driverPhone.trim(),
     tractor_type: tractorType,
     notes: notes.trim(),
     line_items: validLineItems,
@@ -228,6 +231,7 @@ export default function SalePage() {
     setSaleDate(getTodayDateInput())
     setPaidAmount("")
     setDriverName("")
+    setDriverPhone("")
     setTractorType("russi")
     setNotes("")
     setLineItems([makeRow("awal")])
@@ -283,6 +287,7 @@ export default function SalePage() {
       sale_group_id: saleGroupId,
       customer_id: selectedCustomer.id,
       customer_name: selectedCustomer.name,
+      customer_phone: selectedCustomer.phone || "",
       customer_type: customerType,
       brick_type: row.brickType,
       quantity: row.quantity,
@@ -291,6 +296,7 @@ export default function SalePage() {
       paid_amount: isCashSale ? grandTotal : effectivePaidAmount,
       balance_after: isCashSale ? previousBalance : currentBalanceAfter,
       driver_name: driverName.trim(),
+      driver_phone: driverPhone.trim(),
       tractor_type: tractorType,
       notes: notes.trim(),
       sale_type: customerType,
@@ -347,6 +353,7 @@ export default function SalePage() {
       setSavedSale({
         sale_group_id: saleGroupId,
         customer_name: selectedCustomer.name,
+        customer_phone: selectedCustomer.phone || "",
         customer_type: customerType,
         sale_date: saleDate,
         total_quantity: totalQuantity,
@@ -354,6 +361,7 @@ export default function SalePage() {
         paid_amount: effectivePaidAmount,
         balance_after: currentBalanceAfter,
         driver_name: driverName.trim(),
+        driver_phone: driverPhone.trim(),
         tractor_type: tractorType,
         notes: notes.trim(),
         line_items: rows,
@@ -376,6 +384,7 @@ function handlePrint() {
   }
 
   const printWindow = window.open("", "", "width=1200,height=800")
+
   if (!printWindow) {
     alert("Popup blocked. Please allow popups for printing.")
     return
@@ -388,7 +397,9 @@ function handlePrint() {
           <td>${titleCase(item.brickType)}</td>
           <td>${formatMoney(item.quantity)}</td>
           <td>Rs ${formatMoney(item.rate)}</td>
-          <td>Rs ${formatMoney((item.quantity / 1000) * item.rate)}</td>
+          <td>Rs ${formatMoney(
+            (Number(item.quantity) / 1000) * Number(item.rate)
+          )}</td>
         </tr>
       `
     )
@@ -398,87 +409,163 @@ function handlePrint() {
     <html>
       <head>
         <title>Sale Slip</title>
+
         <style>
           body {
             font-family: Arial, sans-serif;
             padding: 24px;
             color: #000;
           }
-          h1, h2, p {
-            margin: 0;
+
+          h1,h2,p{
+            margin:0;
           }
-          .top {
-            text-align: center;
-            margin-bottom: 22px;
+
+          .top{
+            text-align:center;
+            margin-bottom:22px;
           }
-          .company {
-            font-size: 28px;
-            font-weight: 700;
-            line-height: 1.2;
+
+          .company{
+            font-size:28px;
+            font-weight:700;
+            line-height:1.2;
           }
-          .address {
-            margin-top: 8px;
-            font-size: 16px;
-            line-height: 1.4;
-            color: #444;
+
+          .address{
+            margin-top:8px;
+            font-size:16px;
+            line-height:1.4;
+            color:#444;
           }
-          .title {
-            margin-top: 10px;
-            font-size: 18px;
-            font-weight: 600;
+
+          .title{
+            margin-top:10px;
+            font-size:18px;
+            font-weight:600;
           }
-          .meta {
-            margin-top: 6px;
-            font-size: 14px;
-            color: #555;
+
+          .meta{
+            margin-top:10px;
+            font-size:14px;
+            color:#555;
           }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 18px;
+
+          .info-grid{
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:12px;
+            margin-top:18px;
           }
-          th, td {
-            border: 1px solid #ccc;
-            padding: 10px;
-            text-align: left;
-            font-size: 14px;
+
+          .info-box{
+            border:1px solid #ccc;
+            padding:12px;
           }
-          th {
-            background: #f3f4f6;
+
+          .label{
+            color:#666;
+            font-size:13px;
+            margin-bottom:6px;
           }
-          .summary {
-            margin-top: 18px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+
+          .value{
+            font-size:15px;
+            font-weight:600;
+            line-height:1.5;
           }
-          .box {
-            border: 1px solid #ccc;
-            padding: 10px;
+
+          table{
+            width:100%;
+            border-collapse:collapse;
+            margin-top:18px;
           }
-          .label {
-            color: #555;
-            font-size: 13px;
+
+          th,td{
+            border:1px solid #ccc;
+            padding:10px;
+            text-align:left;
+            font-size:14px;
           }
-          .value {
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 4px;
+
+          th{
+            background:#f3f4f6;
+          }
+
+          .summary{
+            margin-top:18px;
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:10px;
+          }
+
+          .box{
+            border:1px solid #ccc;
+            padding:10px;
+          }
+
+          .sum-label{
+            color:#555;
+            font-size:13px;
+          }
+
+          .sum-value{
+            font-size:16px;
+            font-weight:bold;
+            margin-top:4px;
+          }
+
+          .notes{
+            margin-top:20px;
+            border:1px solid #ccc;
+            padding:10px;
           }
         </style>
       </head>
+
       <body>
+
         <div class="top">
-          <div class="company">Anayat Sons Bricks</div>
+          <div class="company">
+            Anayat Sons Bricks
+          </div>
+
           <div class="address">
-            248 R.B, Dalowal,<br />
+            248 R.B, Dalowal<br/>
             Samundri Road, Faisalabad
           </div>
-          <div class="title">Sale Slip</div>
+
+          <div class="title">
+            Sale Slip
+          </div>
+
           <div class="meta">
-            ${receiptData.customer_name} • ${titleCase(receiptData.customer_type)}<br />
             Date: ${receiptData.sale_date}
           </div>
+        </div>
+
+        <div class="info-grid">
+
+          <div class="info-box">
+            <div class="label">Customer</div>
+
+            <div class="value">
+              ${receiptData.customer_name}<br/>
+              ${receiptData.customer_phone || "-"}<br/>
+              ${titleCase(receiptData.customer_type)}
+            </div>
+          </div>
+
+          <div class="info-box">
+            <div class="label">Delivery Details</div>
+
+            <div class="value">
+              Driver: ${receiptData.driver_name || "-"}<br/>
+              Phone: ${receiptData.driver_phone || "-"}<br/>
+              Tractor: ${titleCase(receiptData.tractor_type)}
+            </div>
+          </div>
+
         </div>
 
         <table>
@@ -490,42 +577,63 @@ function handlePrint() {
               <th>Total</th>
             </tr>
           </thead>
+
           <tbody>
-            ${lineItemsHtml || `<tr><td colspan="4">No items</td></tr>`}
+            ${
+              lineItemsHtml ||
+              `<tr><td colspan="4">No items</td></tr>`
+            }
           </tbody>
         </table>
 
         <div class="summary">
+
           <div class="box">
-            <div class="label">Grand Total</div>
-            <div class="value">Rs ${formatMoney(receiptData.total_amount)}</div>
+            <div class="sum-label">Grand Total</div>
+            <div class="sum-value">
+              Rs ${formatMoney(receiptData.total_amount)}
+            </div>
           </div>
+
           <div class="box">
-            <div class="label">Paid</div>
-            <div class="value">Rs ${formatMoney(receiptData.paid_amount)}</div>
+            <div class="sum-label">Paid</div>
+            <div class="sum-value">
+              Rs ${formatMoney(receiptData.paid_amount)}
+            </div>
           </div>
+
           <div class="box">
-            <div class="label">Balance After</div>
-            <div class="value">Rs ${formatMoney(receiptData.balance_after)}</div>
+            <div class="sum-label">Balance After</div>
+            <div class="sum-value">
+              Rs ${formatMoney(receiptData.balance_after)}
+            </div>
           </div>
+
           <div class="box">
-            <div class="label">Delivery</div>
-            <div class="value">${receiptData.driver_name || "-"} / ${titleCase(
-              receiptData.tractor_type
-            )}</div>
+            <div class="sum-label">Sale Type</div>
+            <div class="sum-value">
+              ${titleCase(receiptData.customer_type)}
+            </div>
           </div>
+
         </div>
 
-        <p style="margin-top: 18px;">Notes: ${receiptData.notes || "-"}</p>
+        <div class="notes">
+          <strong>Notes:</strong><br/>
+          ${receiptData.notes || "-"}
+        </div>
+
       </body>
     </html>
   `)
 
   printWindow.document.close()
   printWindow.focus()
-  setTimeout(() => printWindow.print(), 500)
-}
 
+  setTimeout(() => {
+    printWindow.print()
+  }, 500)
+}
   const recentSales = useMemo(() => sales, [sales])
 
   return (
@@ -785,7 +893,7 @@ function handlePrint() {
                       </div>
                     </div>
                   )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                  <div className="grid-cols-1 md:grid-cols-3 gap-4 pt-4">
                   <div>
                     <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
                       Driver Name
@@ -799,7 +907,19 @@ function handlePrint() {
                       className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
                     />
                   </div>
-                
+                <div>
+                <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
+                  Driver Phone
+                </label>
+              
+                <input
+                  type="text"
+                  value={driverPhone}
+                  onChange={(e) => setDriverPhone(e.target.value)}
+                  placeholder="0300-1234567"
+                  className="w-full rounded-xl bg-[#081a2f] border border-white/10 px-4 py-3 outline-none focus:border-orange-500"
+                />
+              </div>
                   <div>
                     <label className="block text-xs uppercase tracking-[0.2em] text-gray-400 mb-2">
                       Tractor
@@ -866,6 +986,9 @@ function handlePrint() {
                       <p className="mt-1 text-lg font-semibold text-white">
                         {receiptData.customer_name}
                       </p>
+                        <p className="text-gray-300 mt-1">
+                        {receiptData.customer_phone || "-"}
+                      </p>
                       <p className="text-gray-400 mt-1">
                         {titleCase(receiptData.customer_type)} customer
                       </p>
@@ -925,12 +1048,17 @@ function handlePrint() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                      <p className="text-gray-400">Delivery</p>
-                      <p className="mt-1 text-base font-semibold text-white">
-                        {receiptData.driver_name || "-"} / {titleCase(receiptData.tractor_type)}
-                      </p>
+                    <div className="value">
+                    <div>{receiptData.driver_name || "-"}</div>
+                  
+                    <div className="text-gray-300 text-sm mt-1">
+                      {receiptData.driver_phone || "-"}
                     </div>
+                  
+                    <div className="mt-1">
+                      {titleCase(receiptData.tractor_type)}
+                    </div>
+                  </div>
 
                     <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
                       <p className="text-gray-400">Notes</p>
