@@ -391,6 +391,7 @@ export default function WorkEntryPage() {
                   ))}
                 </div>
 
+                 <div className="pt-4">
                   <button
                     type="submit"
                     disabled={saving || loading}
