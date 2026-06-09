@@ -261,9 +261,13 @@ export default function WorkEntryPage() {
         <div className="mx-auto max-w-7xl space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             <div className="rounded-3xl border border-orange-500/20 bg-[#0f223a] p-6 shadow-2xl">
-              <p className="text-gray-400">Rows in Form</p>
+              <p className="text-gray-400">Active Entries</p>
               <p className="mt-2 text-3xl font-bold text-orange-300">
-                {formatMoney(rows.length)}
+                {
+                  Object.values(brickEntries).filter(
+                    (qty) => Number(qty) > 0
+                  ).length
+                }
               </p>
             </div>
 
@@ -386,15 +390,6 @@ export default function WorkEntryPage() {
                     </div>
                   ))}
                 </div>
-
-                <div className="flex flex-wrap gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={addRow}
-                    className="rounded-xl bg-white/5 px-6 py-3 font-semibold text-gray-200 hover:bg-white/10 transition border border-white/10"
-                  >
-                    Add Row
-                  </button>
 
                   <button
                     type="submit"
