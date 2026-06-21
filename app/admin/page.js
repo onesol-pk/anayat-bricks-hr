@@ -77,7 +77,6 @@ const MENU_GROUPS = [
       { href: "/additions", label: "Additions" },
       { href: "/deductions", label: "Deductions" },
       { href: "/expenses", label: "Expenses" },
-      { href: "/income", label: "Income" },
       { href: "/rokar", label: "Rokar" },
     ],
   },
@@ -428,6 +427,79 @@ export default function AdminDashboard() {
 
             <div className="hidden lg:block" />
           </div>
+
+        <section className="rounded-3xl border border-white/10 bg-[#0f223a] p-6 shadow-2xl">
+  <div className="mb-6">
+    <p className="inline-flex rounded-full px-3 py-1 text-xs font-semibold bg-orange-500/15 text-orange-200">
+      Quick Actions
+    </p>
+
+    <h2 className="mt-3 text-2xl md:text-3xl font-bold">
+      Daily Operations
+    </h2>
+
+    <p className="text-gray-400 mt-1">
+      Open any module directly from the dashboard.
+    </p>
+  </div>
+
+  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <Link href="/work-entry" className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-5 hover:bg-orange-500/20 transition">
+      <div className="text-3xl">🧱</div>
+      <div className="mt-3 font-semibold">Work Entry</div>
+    </Link>
+
+    <Link href="/sale" className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 hover:bg-emerald-500/20 transition">
+      <div className="text-3xl">🚚</div>
+      <div className="mt-3 font-semibold">Sales</div>
+    </Link>
+
+    <Link href="/customer-payments" className="rounded-2xl border border-sky-500/20 bg-sky-500/10 p-5 hover:bg-sky-500/20 transition">
+      <div className="text-3xl">💰</div>
+      <div className="mt-3 font-semibold">Payments</div>
+    </Link>
+
+    <Link href="/expenses" className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5 hover:bg-rose-500/20 transition">
+      <div className="text-3xl">📉</div>
+      <div className="mt-3 font-semibold">Expenses</div>
+    </Link>
+
+    <Link href="/rokar" className="rounded-2xl border border-violet-500/20 bg-violet-500/10 p-5 hover:bg-violet-500/20 transition">
+      <div className="text-3xl">📒</div>
+      <div className="mt-3 font-semibold">Rokar</div>
+    </Link>
+
+    <Link href="/ledger" className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5 hover:bg-amber-500/20 transition">
+      <div className="text-3xl">📋</div>
+      <div className="mt-3 font-semibold">Ledger</div>
+    </Link>
+
+    <Link href="/customers" className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-5 hover:bg-cyan-500/20 transition">
+      <div className="text-3xl">👤</div>
+      <div className="mt-3 font-semibold">Customers</div>
+    </Link>
+
+    <Link href="/workers" className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-5 hover:bg-orange-500/20 transition">
+      <div className="text-3xl">👷</div>
+      <div className="mt-3 font-semibold">Workers</div>
+    </Link>
+
+    <Link href="/advances" className="rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-5 hover:bg-indigo-500/20 transition">
+      <div className="text-3xl">💵</div>
+      <div className="mt-3 font-semibold">Advances</div>
+    </Link>
+
+    <Link href="/additions" className="rounded-2xl border border-green-500/20 bg-green-500/10 p-5 hover:bg-green-500/20 transition">
+      <div className="text-3xl">➕</div>
+      <div className="mt-3 font-semibold">Additions</div>
+    </Link>
+
+    <Link href="/deductions" className="rounded-2xl border border-red-500/20 bg-red-500/10 p-5 hover:bg-red-500/20 transition">
+      <div className="text-3xl">➖</div>
+      <div className="mt-3 font-semibold">Deductions</div>
+    </Link>
+  </div>
+</section>
 
           <section className="relative overflow-hidden rounded-3xl border border-orange-500/20 bg-[#0f223a] shadow-2xl">
             <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-orange-500/25 via-orange-500/10 to-transparent" />
