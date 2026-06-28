@@ -293,7 +293,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <p className="text-sm uppercase tracking-[0.25em] text-gray-400">
-                  Kiln Ops
+                  Anayat Sons Bricks
                 </p>
                 <h2 className="text-lg font-bold text-white">Dashboard</h2>
               </div>
