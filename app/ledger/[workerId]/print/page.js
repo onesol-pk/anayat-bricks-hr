@@ -78,6 +78,8 @@ export default function PrintLedgerPage() {
     currentPeshgi: 0,
     carryForward: 0,
     finalWeeklySalary: 0,
+    originalRate: 0,
+    paymentRate: 0,
   })
 
   const [loading, setLoading] = useState(true)
@@ -213,6 +215,12 @@ export default function PrintLedgerPage() {
         totalAdvances -
         totalDeductions
 
+      const originalRate =
+        bricksMade > 0 ? (totalEarnings / bricksMade) * 1000 : 0
+
+      const paymentRate =
+        bricksMade > 0 ? (finalWeeklySalary / bricksMade) * 1000 : 0
+
       setWorkerInfo(workerData)
       setSummary({
         bricksMade,
@@ -222,6 +230,8 @@ export default function PrintLedgerPage() {
         currentPeshgi,
         carryForward,
         finalWeeklySalary,
+        originalRate,
+        paymentRate,
       })
     } catch (error) {
       alert(error.message || "Failed to load print slip")
@@ -249,7 +259,7 @@ export default function PrintLedgerPage() {
           <h1 className="text-2xl font-bold">
             Anayat Sons Bricks – Worker Ledger Slip
           </h1>
-          <div class="address">
+          <div className="address">
             248 R.B, Dalowal,<br />
             Samundri Road, Faisalabad
           </div>
@@ -275,6 +285,17 @@ export default function PrintLedgerPage() {
               <p>Date Range: {dateFrom} to {dateTo}</p>
               <p>Name: {workerInfo.name}</p>
               <p>Bricks Made: {formatMoney(summary.bricksMade)}</p>
+
+              <div className="my-3 rounded-lg border-2 border-orange-500 bg-orange-50 p-3">
+                <p className="font-semibold text-orange-700">Original Rate (Per 1000 Bricks)</p>
+                <p className="text-xl font-bold">Rs {formatMoney(summary.originalRate)}</p>
+
+                <div className="my-2 border-t border-orange-300"></div>
+
+                <p className="font-semibold text-green-700">Payment Rate (Per 1000 Bricks)</p>
+                <p className="text-xl font-bold">Rs {formatMoney(summary.paymentRate)}</p>
+              </div>
+
               <p>Total Earnings: Rs {formatMoney(summary.totalEarnings)}</p>
               <p>Total Advances: Rs {formatMoney(summary.totalAdvances)}</p>
               <p>Total Deductions: Rs {formatMoney(summary.totalDeductions)}</p>
@@ -296,6 +317,17 @@ export default function PrintLedgerPage() {
               <p>تاریخ: {dateFrom} سے {dateTo}</p>
               <p>نام: {workerInfo.name}</p>
               <p>اینٹیں: {formatMoney(summary.bricksMade)}</p>
+
+              <div className="my-3 rounded-lg border-2 border-orange-500 bg-orange-50 p-3 text-right">
+                <p className="font-semibold text-orange-700">اصل ریٹ (فی ہزار اینٹ)</p>
+                <p className="text-xl font-bold">{formatMoney(summary.originalRate)} روپے</p>
+
+                <div className="my-2 border-t border-orange-300"></div>
+
+                <p className="font-semibold text-green-700">ادائیگی کا ریٹ (فی ہزار اینٹ)</p>
+                <p className="text-xl font-bold">{formatMoney(summary.paymentRate)} روپے</p>
+              </div>
+
               <p>کل آمدنی: {formatMoney(summary.totalEarnings)} روپے</p>
               <p>کل ایڈوانس: {formatMoney(summary.totalAdvances)} روپے</p>
               <p>کل کٹوتیاں: {formatMoney(summary.totalDeductions)} روپے</p>
