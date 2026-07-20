@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { createClient } from "@supabase/supabase-js"
 
@@ -94,6 +95,7 @@ function makeRow(brickType = "awal") {
 }
 
 export default function SalePage() {
+  const router = useRouter()
   const [customers, setCustomers] = useState([])
   const [sales, setSales] = useState([])
   const [stockMovements, setStockMovements] = useState([])
@@ -368,8 +370,15 @@ export default function SalePage() {
       })
 
       alert("Sale saved successfully")
-      resetForm(true)
-      await fetchData()
+
+const firstSaleId = insertedSales?.[0]?.id
+
+resetForm(true)
+await fetchData()
+
+if (firstSaleId) {
+  router.push(`/sale/print/${firstSaleId}`)
+}
     } catch (error) {
       alert(error.message || "Failed to save sale")
     } finally {
