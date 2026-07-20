@@ -94,11 +94,257 @@ export default function SalePrintPage() {
     window.print()
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white text-black flex items-center justify-center">
+        Loading...
+      </div>
+    )
+  }
 
-  const Slip = ({ copyTitle }) => (      <div className="max-w-3xl mx-auto">
-        <Slip copyTitle="OFFICE COPY" />
-        <div style={{ height: "32px" }} />
-        <Slip copyTitle="CUSTOMER COPY" />
+  if (!firstSale) {
+    return (
+      <div className="min-h-screen bg-white text-black flex items-center justify-center">
+        Sale not found
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-white text-black p-4">
+      <div className="no-print flex justify-between items-center mb-4 max-w-3xl mx-auto">
+        <Link href="/sale" className="text-blue-600 underline">
+          Back to Sale
+        </Link>
+
+        <button
+          onClick={handlePrint}
+          className="bg-black text-white px-5 py-2 rounded"
+        >
+          Print
+        </button>
+      </div>
+
+      <div className="sale-print-card max-w-3xl mx-auto border border-gray-300 p-6 rounded bg-white">
+        <h1 className="text-2xl font-bold text-center">Anayat Sons Bricks</h1>
+        <h2 className="text-lg font-semibold text-center mt-1">Sale Slip</h2>
+
+        <div className="border-2 border-black text-center font-bold py-1 mt-3">OFFICE COPY</div>
+
+        <div className="grid grid-cols-2 gap-4 mt-6 text-sm">
+          <div>
+            <p className="text-gray-500">Date</p>
+            <p className="font-semibold">{firstSale.sale_date}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Customer</p>
+            <p className="font-semibold">{firstSale.customer_name}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Type</p>
+            <p className="font-semibold">
+              {titleCase(firstSale.customer_type)}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Sale Mode</p>
+            <p className="font-semibold">{titleCase(firstSale.sale_type)}</p>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <p className="text-gray-500 text-sm mb-2">Line Items</p>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Brick Type
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Quantity
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Rate
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {saleRows.map((row) => (
+                <tr key={row.id}>
+                  <td className="border border-gray-300 px-3 py-2">
+                    {titleCase(row.brick_type)}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2">
+                    {formatMoney(row.quantity)}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2">
+                    Rs {formatMoney(row.rate)}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2">
+                    Rs {formatMoney(row.total_amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mt-6 text-sm">
+          <div>
+            <p className="text-gray-500">Total Quantity</p>
+            <p className="font-semibold">{formatMoney(totalQuantity)}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Grand Total</p>
+            <p className="font-semibold">Rs {formatMoney(grandTotal)}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Paid Amount</p>
+            <p className="font-semibold">Rs {formatMoney(paidAmount)}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Balance After</p>
+            <p className="font-semibold">Rs {formatMoney(balanceAfter)}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Driver</p>
+            <p className="font-semibold">{firstSale.driver_name || "-"}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Tractor</p>
+            <p className="font-semibold">
+              {titleCase(firstSale.tractor_type) || "-"}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <p className="text-gray-500 text-sm">Notes</p>
+          <p className="font-semibold">{firstSale.notes || "-"}</p>
+        </div>
+      </div>
+
+      <div style={{height:"32px"}} />
+
+<div className="sale-print-card max-w-3xl mx-auto border border-gray-300 p-6 rounded bg-white">
+        <h1 className="text-2xl font-bold text-center">Anayat Sons Bricks</h1>
+        <h2 className="text-lg font-semibold text-center mt-1">Sale Slip</h2>
+
+        <div className="border-2 border-black text-center font-bold py-1 mt-3">CUSTOMER COPY</div>
+
+        <div className="grid grid-cols-2 gap-4 mt-6 text-sm">
+          <div>
+            <p className="text-gray-500">Date</p>
+            <p className="font-semibold">{firstSale.sale_date}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Customer</p>
+            <p className="font-semibold">{firstSale.customer_name}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Type</p>
+            <p className="font-semibold">
+              {titleCase(firstSale.customer_type)}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Sale Mode</p>
+            <p className="font-semibold">{titleCase(firstSale.sale_type)}</p>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <p className="text-gray-500 text-sm mb-2">Line Items</p>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Brick Type
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Quantity
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Rate
+                </th>
+                <th className="border border-gray-300 px-3 py-2 text-left">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {saleRows.map((row) => (
+                <tr key={row.id}>
+                  <td className="border border-gray-300 px-3 py-2">
+                    {titleCase(row.brick_type)}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2">
+                    {formatMoney(row.quantity)}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2">
+                    Rs {formatMoney(row.rate)}
+                  </td>
+                  <td className="border border-gray-300 px-3 py-2">
+                    Rs {formatMoney(row.total_amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mt-6 text-sm">
+          <div>
+            <p className="text-gray-500">Total Quantity</p>
+            <p className="font-semibold">{formatMoney(totalQuantity)}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Grand Total</p>
+            <p className="font-semibold">Rs {formatMoney(grandTotal)}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Paid Amount</p>
+            <p className="font-semibold">Rs {formatMoney(paidAmount)}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Balance After</p>
+            <p className="font-semibold">Rs {formatMoney(balanceAfter)}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Driver</p>
+            <p className="font-semibold">{firstSale.driver_name || "-"}</p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Tractor</p>
+            <p className="font-semibold">
+              {titleCase(firstSale.tractor_type) || "-"}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <p className="text-gray-500 text-sm">Notes</p>
+          <p className="font-semibold">{firstSale.notes || "-"}</p>
+        </div>
       </div>
 
       <style jsx global>{`
