@@ -373,12 +373,15 @@ export default function SalePage() {
 
 const firstSaleId = insertedSales?.[0]?.id
 
-resetForm(true)
+setSavedSale({
+  ...
+  id: firstSaleId,
+})
+
+alert("Sale saved successfully")
+
 await fetchData()
 
-if (firstSaleId) {
-  router.push(`/sale/print/${firstSaleId}`)
-}
     } catch (error) {
       alert(error.message || "Failed to save sale")
     } finally {
@@ -387,261 +390,12 @@ if (firstSaleId) {
   }
 
 function handlePrint() {
-  if (!receiptData?.customer_name || !receiptData?.line_items?.length) {
+  if (!savedSale?.id) {
     alert("Please save a sale before printing")
     return
   }
 
-  const printWindow = window.open("", "", "width=1200,height=800")
-
-  if (!printWindow) {
-    alert("Popup blocked. Please allow popups for printing.")
-    return
-  }
-
-  const lineItemsHtml = (receiptData.line_items || [])
-    .map(
-      (item) => `
-        <tr>
-          <td>${titleCase(item.brickType)}</td>
-          <td>${formatMoney(item.quantity)}</td>
-          <td>Rs ${formatMoney(item.rate)}</td>
-          <td>Rs ${formatMoney(
-            (Number(item.quantity) / 1000) * Number(item.rate)
-          )}</td>
-        </tr>
-      `
-    )
-    .join("")
-
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Sale Slip</title>
-
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            padding: 24px;
-            color: #000;
-          }
-
-          h1,h2,p{
-            margin:0;
-          }
-
-          .top{
-            text-align:center;
-            margin-bottom:22px;
-          }
-
-          .company{
-            font-size:28px;
-            font-weight:700;
-            line-height:1.2;
-          }
-
-          .address{
-            margin-top:8px;
-            font-size:16px;
-            line-height:1.4;
-            color:#444;
-          }
-
-          .title{
-            margin-top:10px;
-            font-size:18px;
-            font-weight:600;
-          }
-
-          .meta{
-            margin-top:10px;
-            font-size:14px;
-            color:#555;
-          }
-
-          .info-grid{
-            display:grid;
-            grid-template-columns:1fr 1fr;
-            gap:12px;
-            margin-top:18px;
-          }
-
-          .info-box{
-            border:1px solid #ccc;
-            padding:12px;
-          }
-
-          .label{
-            color:#666;
-            font-size:13px;
-            margin-bottom:6px;
-          }
-
-          .value{
-            font-size:15px;
-            font-weight:600;
-            line-height:1.5;
-          }
-
-          table{
-            width:100%;
-            border-collapse:collapse;
-            margin-top:18px;
-          }
-
-          th,td{
-            border:1px solid #ccc;
-            padding:10px;
-            text-align:left;
-            font-size:14px;
-          }
-
-          th{
-            background:#f3f4f6;
-          }
-
-          .summary{
-            margin-top:18px;
-            display:grid;
-            grid-template-columns:1fr 1fr;
-            gap:10px;
-          }
-
-          .box{
-            border:1px solid #ccc;
-            padding:10px;
-          }
-
-          .sum-label{
-            color:#555;
-            font-size:13px;
-          }
-
-          .sum-value{
-            font-size:16px;
-            font-weight:bold;
-            margin-top:4px;
-          }
-
-          .notes{
-            margin-top:20px;
-            border:1px solid #ccc;
-            padding:10px;
-          }
-        </style>
-      </head>
-
-      <body>
-
-        <div class="top">
-          <div class="company">
-            Anayat Sons Bricks
-          </div>
-
-          <div class="address">
-            248 R.B, Dalowal<br/>
-            Samundri Road, Faisalabad
-          </div>
-
-          <div class="title">
-            Sale Slip
-          </div>
-
-          <div class="meta">
-            Date: ${receiptData.sale_date}
-          </div>
-        </div>
-
-        <div class="info-grid">
-
-          <div class="info-box">
-            <div class="label">Customer</div>
-
-            <div class="value">
-              ${receiptData.customer_name}<br/>
-              ${receiptData.customer_phone || "-"}<br/>
-              ${titleCase(receiptData.customer_type)}
-            </div>
-          </div>
-
-          <div class="info-box">
-            <div class="label">Delivery Details</div>
-
-            <div class="value">
-              Driver: ${receiptData.driver_name || "-"}<br/>
-              Phone: ${receiptData.driver_phone || "-"}<br/>
-              Tractor: ${titleCase(receiptData.tractor_type)}
-            </div>
-          </div>
-
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Brick Type</th>
-              <th>Quantity</th>
-              <th>Rate</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            ${
-              lineItemsHtml ||
-              `<tr><td colspan="4">No items</td></tr>`
-            }
-          </tbody>
-        </table>
-
-        <div class="summary">
-
-          <div class="box">
-            <div class="sum-label">Grand Total</div>
-            <div class="sum-value">
-              Rs ${formatMoney(receiptData.total_amount)}
-            </div>
-          </div>
-
-          <div class="box">
-            <div class="sum-label">Paid</div>
-            <div class="sum-value">
-              Rs ${formatMoney(receiptData.paid_amount)}
-            </div>
-          </div>
-
-          <div class="box">
-            <div class="sum-label">Balance After</div>
-            <div class="sum-value">
-              Rs ${formatMoney(receiptData.balance_after)}
-            </div>
-          </div>
-
-          <div class="box">
-            <div class="sum-label">Sale Type</div>
-            <div class="sum-value">
-              ${titleCase(receiptData.customer_type)}
-            </div>
-          </div>
-
-        </div>
-
-        <div class="notes">
-          <strong>Notes:</strong><br/>
-          ${receiptData.notes || "-"}
-        </div>
-
-      </body>
-    </html>
-  `)
-
-  printWindow.document.close()
-  printWindow.focus()
-
-  setTimeout(() => {
-    printWindow.print()
-  }, 500)
+  window.open(`/sale/print/${savedSale.id}`, "_blank")
 }
   const recentSales = useMemo(() => sales, [sales])
 
