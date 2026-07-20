@@ -352,6 +352,8 @@ export default function SalePage() {
         }
       }
 
+      const firstSaleId = insertedSales?.[0]?.id
+      
       setSavedSale({
         sale_group_id: saleGroupId,
         customer_name: selectedCustomer.name,
@@ -368,15 +370,6 @@ export default function SalePage() {
         notes: notes.trim(),
         line_items: rows,
       })
-
-      alert("Sale saved successfully")
-
-const firstSaleId = insertedSales?.[0]?.id
-
-setSavedSale({
-  ...
-  id: firstSaleId,
-})
 
 alert("Sale saved successfully")
 
