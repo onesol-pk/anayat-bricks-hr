@@ -355,6 +355,7 @@ export default function SalePage() {
       const firstSaleId = insertedSales?.[0]?.id
       
       setSavedSale({
+        id: firstSaleId,
         sale_group_id: saleGroupId,
         customer_name: selectedCustomer.name,
         customer_phone: selectedCustomer.phone || "",
